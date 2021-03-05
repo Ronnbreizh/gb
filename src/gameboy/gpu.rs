@@ -18,18 +18,16 @@ use glium::{
 /// VRAM background map : 9800 to 9BFF
 ///                    or 9C00 to 9FFF
 pub struct Gpu {
-    bus: Rc<RefCell<MemoryBus>>,
 }
 
 impl Gpu {
-    pub fn new(bus: Rc<RefCell<MemoryBus>>) -> Self {
+    pub fn new() -> Self {
 
         Self {
-            bus,
         }
     }
 
-    pub fn draw(&self, display: &Display) {
+    pub fn draw(&self, display: &Display, bus: &mut MemoryBus) {
         let mut texture = glium::texture::texture2d::Texture2d::empty_with_format(
                 display,
                 UncompressedFloatFormat::U8U8U8,
@@ -39,7 +37,7 @@ impl Gpu {
             .unwrap();
 
         // TODO
-        let data = self.bus.borrow().vram();
+        let data = bus.vram();
 
         let rawimage2d = glium::texture::RawImage2d {
             data: std::borrow::Cow::Borrowed(&data),

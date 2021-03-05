@@ -29,7 +29,7 @@ use glium::{
 /// * inputs
 pub struct Gameboy {
     cpu: Cpu,
-    bus: Rc<RefCell<MemoryBus>>,
+    bus: MemoryBus,
     gpu: Gpu,
 }
 
@@ -66,7 +66,7 @@ impl Gameboy {
             self.cpu.step(&mut self.bus);
 
             // video
-            self.gpu.draw(&display);
+            self.gpu.draw(&display, &mut self.bus);
 
             // audio
 
