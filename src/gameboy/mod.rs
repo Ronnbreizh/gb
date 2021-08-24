@@ -2,7 +2,7 @@ mod gameboy;
 mod registers;
 mod flagsregister;
 mod instruction;
-mod memorybus;
+mod memory;
 mod arithmetictarget;
 mod cpu;
 mod gpu;

@@ -1,7 +1,5 @@
 use super::{SCREEN_W, SCREEN_H};
-use super::memorybus::MemoryBus;
-use std::rc::Rc;
-use std::cell::RefCell;
+use super::memory::MemoryBus;
 use glium::{
     Display,
     Surface,
@@ -28,7 +26,7 @@ impl Gpu {
     }
 
     pub fn draw(&self, display: &Display, bus: &mut MemoryBus) {
-        let mut texture = glium::texture::texture2d::Texture2d::empty_with_format(
+        let texture = glium::texture::texture2d::Texture2d::empty_with_format(
                 display,
                 UncompressedFloatFormat::U8U8U8,
                 MipmapsOption::NoMipmap,
@@ -36,11 +34,11 @@ impl Gpu {
                 SCREEN_H as u32)
             .unwrap();
 
-        // TODO
+        // Retrive VRAM
         let data = bus.vram();
 
         let rawimage2d = glium::texture::RawImage2d {
-            data: std::borrow::Cow::Borrowed(&data),
+            data: std::borrow::Cow::Borrowed(data),
             width: SCREEN_W as u32,
             height: SCREEN_H as u32,
             format: ClientFormat::U8U8U8,
@@ -73,6 +71,6 @@ impl Gpu {
             },
             interpolation_type);
         // finish
-         target.finish().unwrap();
+        target.finish().unwrap();
     }
 }

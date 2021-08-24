@@ -1,8 +1,7 @@
 use super::cpu::Cpu;
-use super::memorybus::MemoryBus;
+use super::memory::MemoryBus;
 use super::gpu::Gpu;
-use std::rc::Rc;
-use std::cell::RefCell;
+
 use glium::{
     glutin::{
         event_loop::{
@@ -35,7 +34,7 @@ pub struct Gameboy {
 
 impl Gameboy {
     pub fn new() -> Self {
-        let bus = MemoryBus::new();
+        let bus = MemoryBus::default();
         Self{
             cpu : Cpu::new(),
             gpu : Gpu::new(),
