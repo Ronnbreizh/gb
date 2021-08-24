@@ -55,3 +55,60 @@ pub trait Memory {
         (self.buffer()[address as usize] as u16) | ((self.buffer()[(address +1 )as usize] as u16) << 4)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::Memory;
+
+    struct TestMemory {
+        buffer: [u8;5]
+    }
+
+    impl Memory for TestMemory {
+        fn start() -> u16 {
+            4
+        }
+
+        fn end() -> u16 {
+            9
+        }
+
+        fn buffer(&self) -> &[u8] {
+            &self.buffer
+        }
+
+        fn buffer_as_mut(&mut self) -> &mut [u8] {
+            &mut self.buffer
+        }
+    }
+
+    #[test]
+    fn test_memory() {
+        let buffer = [1,2,3,4,5];
+        let mut memory = TestMemory{buffer};
+
+        assert_eq!(memory.read_byte(4), 1);
+        assert_eq!(memory.read_byte(8), 5);
+
+        memory.write_byte(5, 42);
+        assert_eq!(memory.read_byte(5), 42)
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_invalid_write() {
+        let buffer = [1,2,3,4,5];
+        let mut memory = TestMemory{buffer};
+
+        memory.write_byte(2, 23);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_invalid_read() {
+        let buffer = [1,2,3,4,5];
+        let memory = TestMemory{buffer};
+
+        memory.read_byte(32);
+    }
+}

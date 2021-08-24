@@ -1,3 +1,4 @@
+use std::convert::TryInto;
 use std::fs::File;
 use std::io::Read;
 
@@ -119,7 +120,9 @@ impl MemoryBus {
         let memory = &mut self.read_only_memory;
         let mut boot_sequence = File::open(BOOT_SEQUENCE_PATH).unwrap();
 
-        boot_sequence.read(memory.buffer_as_mut());
+        let boot_size = boot_sequence.read(memory.buffer_as_mut()).unwrap();
+
+        if boot_size != BOOT_SEQUENCE_SIZE {panic!();}
     }
 
     /// Load cartridge after the boot sequence.

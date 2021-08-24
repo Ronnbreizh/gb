@@ -65,15 +65,17 @@ impl Gameboy {
             self.cpu.step(&mut self.bus);
 
             // video
-            self.gpu.draw(&display, &mut self.bus);
+            // self.gpu.draw(&display, &mut self.bus);
 
             // audio
 
             // compute frame frequency?
             let next_frame_time = std::time::Instant::now() +
-                std::time::Duration::from_nanos(16_666_667);
+                std::time::Duration::from_secs(2);
 
             *control_flow = ControlFlow::WaitUntil(next_frame_time);
+
+            std::thread::sleep(std::time::Duration::from_secs(1));
 
             // input
             match ev {
