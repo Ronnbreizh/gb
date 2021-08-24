@@ -263,14 +263,14 @@ impl Instruction {
             //0xa6 => Some(Instruction::And(ArithmeticTarget::HL)),
             0xa7 => Some(Instruction::And(ArithmeticTarget::A)),
             // XOR
-            0xa8 => Some(Instruction::Sbc(ArithmeticTarget::B)),
-            0xa9 => Some(Instruction::Sbc(ArithmeticTarget::C)),
-            0xaa => Some(Instruction::Sbc(ArithmeticTarget::D)),
-            0xab => Some(Instruction::Sbc(ArithmeticTarget::E)),
-            0xac => Some(Instruction::Sbc(ArithmeticTarget::H)),
-            0xad => Some(Instruction::Sbc(ArithmeticTarget::L)),
-            //0xae => Some(Instruction::Sbc(ArithmeticTarget::HL)),
-            0xaf => Some(Instruction::Sbc(ArithmeticTarget::A)),
+            0xa8 => Some(Instruction::Xor(ArithmeticTarget::B)),
+            0xa9 => Some(Instruction::Xor(ArithmeticTarget::C)),
+            0xaa => Some(Instruction::Xor(ArithmeticTarget::D)),
+            0xab => Some(Instruction::Xor(ArithmeticTarget::E)),
+            0xac => Some(Instruction::Xor(ArithmeticTarget::H)),
+            0xad => Some(Instruction::Xor(ArithmeticTarget::L)),
+            0xae => Some(Instruction::Xor(ArithmeticTarget::HL)),
+            0xaf => Some(Instruction::Xor(ArithmeticTarget::A)),
             // OR
             0xb0 => Some(Instruction::Or(ArithmeticTarget::B)),
             0xb1 => Some(Instruction::Or(ArithmeticTarget::C)),
@@ -619,5 +619,54 @@ impl Instruction {
             0xff => Some(Instruction::Set(ArithmeticTarget::A, 7)),
             _ => None,
         }
+    }
+}
+
+
+impl ToString for Instruction {
+    fn to_string(&self) -> String {
+        match self {
+            Instruction::Nop => "nop",
+            Instruction::Adc(_) => "adc", 
+            Instruction::Add(_) => "add",
+            Instruction::AddHL(_) => "addhl",
+            Instruction::And(_) => "and",
+            Instruction::Ccf(_) => "ccf",
+            Instruction::Cp(_) => "cp", 
+            Instruction::Cpl(_) => "cpl",
+            Instruction::Dec(_) => "dec", 
+            Instruction::Inc(_) => "inc",
+            Instruction::Or(_) => "or",
+            Instruction::Rla(_) => "rla",
+            Instruction::Rlc(_) => "rlc",
+            Instruction::Rl(_) => "rl",
+            Instruction::Rr(_) => "rr", 
+            Instruction::Rra(_) => "rra",
+            Instruction::Rrc(_) => "rrc",
+            Instruction::Rrca(_) => "rrca",
+            Instruction::Rrla(_) => "rrla",
+            Instruction::Sbc(_) => "sbc",
+            Instruction::Scf(_) => "scf",
+            Instruction::Sla(_) => "sla",
+            Instruction::Sra(_) => "sra",
+            Instruction::Srl(_) => "srl",
+            Instruction::Sub(_) => "sub",
+            Instruction::Swap(_) => "swap",
+            Instruction::Xor(_) => "xor",
+            Instruction::Load(_, _) => "load",
+            Instruction::Load8(_) => "load8",
+            Instruction::Load16(_) => "load16",
+            Instruction::LoadH(_, _) => "loadh",
+            Instruction::LoadH8(_) => "loadh8",
+            Instruction::Jump(_, _) => "jump",
+            Instruction::Push(_) => "push",
+            Instruction::Pop(_) => "pop",
+            Instruction::Call(_) => "call",
+            Instruction::Ret(_) => "ret",
+            Instruction::Bit(_, _) => "bit",
+            Instruction::Set(_, _) => "set",
+            Instruction::Res(_, _) => "res",
+            Instruction::Halt => "halt",
+        }.to_string()
     }
 }

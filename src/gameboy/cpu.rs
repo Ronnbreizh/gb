@@ -28,16 +28,17 @@ impl Cpu {
     pub fn step(&mut self, bus: &mut MemoryBus) {
         // Check if prefixed instruction
         let instruction_byte = bus.read_byte(self.pc);
-        println!("Instruction : {:x}\t\t Pc : {:x}", instruction_byte, self.pc);
         let instruction = match instruction_byte {
+            // prefetched
             0xCB => {
                 let instruction_byte = bus.read_byte(self.pc+1);
-                println!("\\\\===> Prefix Ins : {:X}\t", instruction_byte);
+                println!("\\\\=> Prefix Ins : {:X}\t", instruction_byte);
                 Instruction::from_prefixed_byte(instruction_byte)
             },
             _ => Instruction::from_byte(instruction_byte),
         }.expect(&format!("Unknown instruction : 0x{:x}", instruction_byte));
 
+        println!("Instruction : {:4x}\t{}\t Pc : {:x}", instruction_byte, instruction.to_string(), self.pc);
         
         let (new_pc, _delay) = self.execute(instruction, bus);
         self.pc = new_pc;
@@ -152,22 +153,21 @@ impl Cpu {
     }
 
     fn jump(&self, test: &JumpTest, nature: &JumpType, bus: &MemoryBus) -> CpuEffect {
-        // let pc = if test.evaluate(self.registers.f()) {
-        //     // should jump
-        //     match nature {
-        //         JumpType::Relative8 => (self.pc as u32 as i32 + (bus.read_byte(self.pc+1) as i8 as i32)) as u16 + 2,
-        //         JumpType::Relative16 => (self.pc as u32 as i32 + bus.read_2_bytes(self.pc+1) as u32 as i32) as u16 + 3,
-        //         _ => unimplemented!("Jump type missing!"),
-        //     }
-        // } else {
-        //     // just continue
-        //     self.pc + match nature {
-        //         JumpType::Relative8 => 2, 
-        //         JumpType::Relative16 => 3,
-        //         _ => unimplemented!("Jump type missing!"),
-        //     }
-        // };
-        (self.pc+3, 16)
+        if test.evaluate(self.registers.f()) {
+            // should jump
+            match nature {
+                JumpType::Relative8 => ((self.pc as u32 as i32 + (bus.read_byte(self.pc+1) as i8 as i32)) as u16 + 2,8),
+                JumpType::Relative16 => ((self.pc as u32 as i32 + bus.read_word(self.pc+1) as u32 as i32) as u16 + 3,12),
+                _ => unimplemented!("Jump type missing!"),
+            }
+        } else {
+            // just continue
+            match nature {
+                JumpType::Relative8 => (self.pc + 2,8), 
+                JumpType::Relative16 => (self.pc + 3,12),
+                _ => unimplemented!("Jump type missing!"),
+            }
+        }
     }
 
     fn halt(&mut self) -> CpuEffect {
@@ -176,73 +176,74 @@ impl Cpu {
     }
 
     fn load(&mut self,target: &ArithmeticTarget, source: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
-        // self.pc + match target {
-        //     ArithmeticTarget::A => {
-        //         let value = match source {
-        //             ArithmeticTarget::A| ArithmeticTarget::C => self.read_value(source, bus),
-        //             ArithmeticTarget::DEH => self.read_value(&ArithmeticTarget::DEH, bus),
-        //             _=> unimplemented!("Load"),
-        //         };
-        //         self.set_value(&ArithmeticTarget::A, value, bus);
-        //         1
-        //     },
-        //     ArithmeticTarget::B => {
-        //         let value = match source {
-        //             ArithmeticTarget::A => self.read_value(&ArithmeticTarget::A, bus),
-        //             _=> unimplemented!(),
-        //         };
-        //         self.set_value(&ArithmeticTarget::B, value, bus);
-        //         1
-        //     },
-        //     ArithmeticTarget::C => {
-        //         let value = match source {
-        //             ArithmeticTarget::A => self.read_value(&ArithmeticTarget::A, bus),
-        //             _=> unimplemented!(),
-        //         };
-        //         self.set_value(&ArithmeticTarget::C, value, bus);
-        //         1
-        //     },
-        //     ArithmeticTarget::H => {
-        //         let value = match source {
-        //             ArithmeticTarget::A => self.read_value(&ArithmeticTarget::A, bus),
-        //             _=> unimplemented!(),
-        //         };
-        //         self.set_value(&ArithmeticTarget::H, value, bus);
-        //         1
-        //     },
-        //     ArithmeticTarget::HLDec => {
-        //         // retrieve value
-        //         let value = match source {
-        //             ArithmeticTarget::A => self.read_value(&ArithmeticTarget::A, bus),
-        //             _ => unimplemented!(),
-        //         };
-        //         let address = self.read_value_16(&ArithmeticTarget::HL);
-        //         // write to memory bus
-        //         bus.write_byte(address, value);
+        let (offset, delay) = match target {
+            ArithmeticTarget::A => {
+                let value = match source {
+                    ArithmeticTarget::A| ArithmeticTarget::C => self.read_value(source, bus),
+                    ArithmeticTarget::DEH => self.read_value(&ArithmeticTarget::DEH, bus),
+                    _=> unimplemented!("Load"),
+                };
+                self.set_value(&ArithmeticTarget::A, value, bus);
+                (1,4)
+            },
+            ArithmeticTarget::B => {
+                let value = match source {
+                    ArithmeticTarget::A => self.read_value(&ArithmeticTarget::A, bus),
+                    _=> unimplemented!(),
+                };
+                self.set_value(&ArithmeticTarget::B, value, bus);
+                (1,4)
+            },
+            ArithmeticTarget::C => {
+                let value = match source {
+                    ArithmeticTarget::A => self.read_value(&ArithmeticTarget::A, bus),
+                    _=> unimplemented!(),
+                };
+                self.set_value(&ArithmeticTarget::C, value, bus);
+                (1,4)
+            },
+            ArithmeticTarget::H => {
+                let value = match source {
+                    ArithmeticTarget::A => self.read_value(&ArithmeticTarget::A, bus),
+                    _=> unimplemented!(),
+                };
+                self.set_value(&ArithmeticTarget::H, value, bus);
+                (1,4)
+            },
+            ArithmeticTarget::HLDec => {
+                // retrieve value
+                let value = match source {
+                    ArithmeticTarget::A => self.read_value(&ArithmeticTarget::A, bus),
+                    _ => unimplemented!(),
+                };
+                let address = self.read_value_16(&ArithmeticTarget::HL);
+                // write to memory bus
+                bus.write_byte(address, value);
 
-        //         let new_address = address.wrapping_sub(1);
-        //         // decrement HL
-        //         self.set_value_16(
-        //             &ArithmeticTarget::HL,
-        //             new_address,
-        //         );
-        //         1
-        //     },
-        //     ArithmeticTarget::HLH => {
-        //         // retrieve value
-        //         let value = match source {
-        //             ArithmeticTarget::A => self.read_value(&ArithmeticTarget::A, bus),
-        //             _ => unimplemented!(),
-        //         };
-        //         let address = self.read_value_16(&ArithmeticTarget::HL);
-        //         // write to memory bus
-        //         bus.write_byte(address, value);
+                let new_address = address.wrapping_sub(1);
+                // decrement HL
+                self.set_value_16(
+                    &ArithmeticTarget::HL,
+                    new_address,
+                );
+                (1,4)
+            },
+            ArithmeticTarget::HLH => {
+                // retrieve value
+                let value = match source {
+                    ArithmeticTarget::A => self.read_value(&ArithmeticTarget::A, bus),
+                    _ => unimplemented!(),
+                };
+                let address = self.read_value_16(&ArithmeticTarget::HL);
+                // write to memory bus
+                bus.write_byte(address, value);
 
-        //         1
-        //     }
-        //     _ => unimplemented!("[Load] Uninmplemented target register"),
-        // }
-        (1,4)
+                (1,4)
+            }
+            _ => unimplemented!("[Load] Uninmplemented target register"),
+        };
+
+        (self.pc + offset, delay)
     }
     
     /// load8
@@ -276,7 +277,7 @@ impl Cpu {
 
         bus.write_byte(address, value);
 
-        (self.pc + 2, 12)
+        (self.pc + 1, 12)
     }
 
     /// loadh8
@@ -535,7 +536,7 @@ impl Cpu {
         self.registers.f_as_mut().set_half_carry(true);
 
         //TODO 12 sometimes
-        (self.pc + 1, 8)
+        (self.pc + 2, 8)
     }
 
     /// swap
