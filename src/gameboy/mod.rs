@@ -11,3 +11,6 @@ pub use gameboy::Gameboy;
 
 const SCREEN_W : u32 = 160;
 const SCREEN_H : u32 = 144;
+
+
+type GbResult<T> = Result<T, String>;

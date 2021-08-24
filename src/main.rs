@@ -1,8 +1,14 @@
+use std::env;
+
 use gb::Gameboy;
 
 fn main() {
-    // load ROM
-    let gameboy = Gameboy::new();
+    let args: Vec<String> = env::args().collect();
 
-    gameboy.run();
+    let filename = &args[0];
+
+    // load ROM
+    let gameboy = Gameboy::load(filename).unwrap();
+
+    gameboy.run()
 }

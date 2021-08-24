@@ -1,4 +1,4 @@
-use super::cpu::Cpu;
+use super::{GbResult, cpu::Cpu};
 use super::memory::MemoryBus;
 use super::gpu::Gpu;
 
@@ -42,13 +42,13 @@ impl Gameboy {
         }
     }
 
-    pub fn load(rom_path: &str) -> Self {
-        let bus = MemoryBus::load(rom_path);
-        Self{
+    pub fn load(rom_path: &str) -> GbResult<Self> {
+        let bus = MemoryBus::load(rom_path)?;
+        Ok(Self{
             cpu : Cpu::new(),
             gpu : Gpu::new(),
             bus,
-        }
+        })
     }
 
     pub fn run(mut self) {
@@ -74,8 +74,6 @@ impl Gameboy {
                 std::time::Duration::from_secs(2);
 
             *control_flow = ControlFlow::WaitUntil(next_frame_time);
-
-            std::thread::sleep(std::time::Duration::from_secs(1));
 
             // input
             match ev {

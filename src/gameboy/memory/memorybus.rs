@@ -1,4 +1,5 @@
 use std::convert::TryInto;
+use std::fmt::format;
 use std::fs::File;
 use std::io::Read;
 
@@ -37,11 +38,11 @@ pub struct MemoryBus {
 
 impl MemoryBus {
     /// Load bus and cartrige
-    pub fn load(rom_path: &str) -> Self {
+    pub fn load(rom_path: &str) -> Result<Self, String> {
         let mut memory_bus = MemoryBus::default();
-        memory_bus.load_boot();
-        memory_bus.load_cartridge(rom_path);
-        memory_bus
+        memory_bus.load_boot()?;
+        memory_bus.load_cartridge(rom_path)?;
+        Ok(memory_bus)
     }
 
     pub fn read_byte(&self, address: u16) -> u8 {
@@ -77,6 +78,7 @@ impl MemoryBus {
     }
 
     /// return video ram buffer
+    /// usefull for GPU
     pub fn vram(&self) -> &[u8] {
         self.video_ram.buffer()
     }
@@ -116,21 +118,29 @@ impl MemoryBus {
     }
 
     /// Load boot sequence to the beginning of the ROM
-    pub fn load_boot(&mut self){
+    pub fn load_boot(&mut self) -> Result<(), String> {
         let memory = &mut self.read_only_memory;
         let mut boot_sequence = File::open(BOOT_SEQUENCE_PATH).unwrap();
 
-        let boot_size = boot_sequence.read(memory.buffer_as_mut()).unwrap();
-
-        if boot_size != BOOT_SEQUENCE_SIZE {panic!();}
+        let boot_size = boot_sequence.read(memory.buffer_as_mut())
+            .map_err(|e| format!("Failed to parse boot sequence : {}", e.to_string()))?;
+        if boot_size != BOOT_SEQUENCE_SIZE {
+            Err("Invalid read size".to_string())
+        } else {
+            Ok(())
+        }
     }
 
     /// Load cartridge after the boot sequence.
-    pub fn load_cartridge(&mut self, cartrige_path: &str) {
+    pub fn load_cartridge(&mut self, cartrige_path: &str) ->  Result<(), String>{
         let memory = &mut self.read_only_memory;
-        let mut cartridge = File::open(cartrige_path).unwrap();
+        let mut cartridge = File::open(cartrige_path)
+            .map_err(|e| e.to_string())?; 
 
         // write content in memoy after boot sequence size
-        cartridge.read(&mut memory.buffer_as_mut()[BOOT_SEQUENCE_SIZE..]).unwrap();
+        cartridge.read(&mut memory.buffer_as_mut()[BOOT_SEQUENCE_SIZE..])
+            .map_err(|e| format!("Failed to parse cartride : {}", e.to_string()))?;
+        
+        Ok(())
     }
 }
