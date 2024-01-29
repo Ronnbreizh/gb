@@ -1,4 +1,5 @@
-pub enum ArithmeticTarget{
+#[allow(clippy::upper_case_acronyms)]
+pub enum ArithmeticTarget {
     // registers
     A,
     B,
@@ -7,6 +8,7 @@ pub enum ArithmeticTarget{
     E,
     H,
     L,
+    // Double register
     HL,
     BC,
     DE,
@@ -16,13 +18,18 @@ pub enum ArithmeticTarget{
     SP,
 
     // HEAP
+
+    // A double register can be interpreted as a pointer to the heap
+    // Zone pointed by BC register
+    BCH,
+    // Zone pointed by DE register
+    DEH,
+
     // Zone pointed by HL register
     // read/write to the heap
     HLH,
-    // read/write then decrement 
+    // read/write then decrement
     HLDec,
-    // read/write then increment 
+    // read/write then increment
     HLInc,
-    // Zone pointed by DE register
-    DEH,
 }

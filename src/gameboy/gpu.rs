@@ -1,13 +1,5 @@
-use super::{SCREEN_W, SCREEN_H};
+//use super::{SCREEN_W, SCREEN_H};
 use super::memory::MemoryBus;
-use glium::{
-    Display,
-    Surface,
-    texture::{ UncompressedFloatFormat,
-        MipmapsOption,
-        ClientFormat,
-    },
-};
 
 /// objet in charge of display state of the VRAM
 /// from $8000 to $97FF
@@ -15,17 +7,18 @@ use glium::{
 /// sprites attributes: FE00 to FE9F
 /// VRAM background map : 9800 to 9BFF
 ///                    or 9C00 to 9FFF
-pub struct Gpu {
-}
+pub struct Gpu {}
 
+/// Inside the Window f Winit, we will need to create a Vulkan context
 impl Gpu {
     pub fn new() -> Self {
-
-        Self {
-        }
+        Self {}
     }
 
-    pub fn draw(&self, display: &Display, bus: &mut MemoryBus) {
+    // DRAW THE UPDATED CONTENT TO THE SCREEN
+    pub fn draw(&self, _bus: &mut MemoryBus) {
+        // TODO
+        /*
         let texture = glium::texture::texture2d::Texture2d::empty_with_format(
                 display,
                 UncompressedFloatFormat::U8U8U8,
@@ -72,5 +65,7 @@ impl Gpu {
             interpolation_type);
         // finish
         target.finish().unwrap();
+
+        */
     }
 }

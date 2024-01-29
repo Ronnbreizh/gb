@@ -1,11 +1,13 @@
-use super::instruction::{Instruction, JumpTest, JumpType};
 use super::arithmetictarget::ArithmeticTarget;
-use super::registers::Registers;
+use super::instruction::{Instruction, JumpTest, JumpType};
 use super::memory::MemoryBus;
+use super::registers::Registers;
+use std::ops::Not;
 
 type Delay = u32;
 type ProgramCounter = u16;
 
+/// Custom type to split the ProgramCounter and the time offset / number of cycle of the CPU
 type CpuEffect = (ProgramCounter, Delay);
 
 pub struct Cpu {
@@ -17,10 +19,10 @@ pub struct Cpu {
 
 impl Cpu {
     pub fn new() -> Self {
-        Self{
+        Self {
             registers: Registers::new(),
             pc: 0 as ProgramCounter,
-            sp: 0 as u16,
+            sp: 0u16,
             is_halted: false,
         }
     }
@@ -31,19 +33,25 @@ impl Cpu {
         let instruction = match instruction_byte {
             // prefetched
             0xCB => {
-                let instruction_byte = bus.read_byte(self.pc+1);
+                let instruction_byte = bus.read_byte(self.pc + 1);
                 println!("\\\\=> Prefix Ins : {:X}\t", instruction_byte);
                 Instruction::from_prefixed_byte(instruction_byte)
-            },
+            }
             _ => Instruction::from_byte(instruction_byte),
-        }.expect(&format!("Unknown instruction : 0x{:x}", instruction_byte));
+        }
+        .unwrap_or_else(|| panic!("Unknown instruction : 0x{:x}", instruction_byte));
 
-        println!("Instruction : {:4x}\t{}\t Pc : {:x}", instruction_byte, instruction.to_string(), self.pc);
-        
+        println!(
+            "Instruction : {:4x}\t{}\t Pc : {:x}",
+            instruction_byte,
+            instruction.to_string(),
+            self.pc
+        );
+
         let (new_pc, _delay) = self.execute(instruction, bus);
         self.pc = new_pc;
     }
-    
+
     fn execute(&mut self, instruction: Instruction, bus: &mut MemoryBus) -> CpuEffect {
         match instruction {
             Instruction::Adc(target) => self.adc(&target, bus),
@@ -51,33 +59,37 @@ impl Cpu {
             Instruction::AddHL(target) => self.sub(&target, bus),
             Instruction::And(target) => self.and(&target, bus),
             Instruction::Bit(target, byte) => self.bit(&target, byte, bus),
-            Instruction::Ccf(target) => unimplemented!(),
-            Instruction::Cp(target) => unimplemented!(),
-            Instruction::Cpl(target) => unimplemented!(),
+            Instruction::Ccf => self.ccf(),
+            Instruction::Cp(target) => self.cp(&target, bus),
+            Instruction::Cpl => self.cpl(),
             Instruction::Dec(target) => self.dec(&target, bus),
             Instruction::Inc(target) => self.inc(&target, bus),
             Instruction::Or(target) => self.or(&target, bus),
             Instruction::Res(target, byte) => self.reset(&target, byte, bus),
-            Instruction::Rla(target) => unimplemented!(),
-            Instruction::Rlc(target) => unimplemented!(),
-            Instruction::Rr(target) => unimplemented!(),
+            Instruction::Rla => self.rl(&ArithmeticTarget::A, bus),
+            Instruction::Rlc(target) => self.rlc(&target, bus),
+            Instruction::Rr(target) => self.rr(&target, bus),
             Instruction::Rl(target) => self.rl(&target, bus),
-            Instruction::Rra(target) => unimplemented!(),
-            Instruction::Rrc(target) => unimplemented!(),
-            Instruction::Rrca(target) => unimplemented!(),
-            Instruction::Rrla(target) => unimplemented!(),
+            Instruction::Rra => unimplemented!(),
+            Instruction::Rrc(target) => self.rrc(&target, bus),
+            Instruction::Rrca => self.rrca(),
+            Instruction::Rlca => self.rlca(),
             Instruction::Sbc(target) => self.sbc(&target, bus),
-            Instruction::Scf(target) => unimplemented!(),
+            Instruction::Scf => unimplemented!(),
             Instruction::Set(target, byte) => self.set(&target, byte, bus),
-            Instruction::Sla(target) => unimplemented!(),
-            Instruction::Sra(target) => unimplemented!(),
-            Instruction::Srl(target) => unimplemented!(),
+            Instruction::Sla(target) => self.sla(&target, bus),
+            Instruction::Sra(target) => self.sra(&target, bus),
+            Instruction::Srl(target) => self.srl(&target, bus),
             Instruction::Sub(target) => self.sub(&target, bus),
-            Instruction::Swap(target) => unimplemented!(),
+            Instruction::Swap(target) => self.swap(&target, bus),
             Instruction::Xor(target) => self.xor(&target, bus),
+            // JUMP
             Instruction::Jump(test, nature) => self.jump(&test, &nature, bus),
             // TODO check me
-            Instruction::Load(target, source) => self.load(&target, &source, bus),
+            Instruction::Load {
+                to: target,
+                from: source,
+            } => self.load(&target, &source, bus),
             Instruction::Load8(target) => self.load8(&target, bus),
             Instruction::Load16(target) => self.load16(&target, bus),
             Instruction::LoadH(target, source) => self.loadh(&target, &source, bus),
@@ -90,7 +102,6 @@ impl Cpu {
 
             Instruction::Nop => self.nop(),
             Instruction::Halt => self.halt(),
-            _ => unimplemented!("Unknown instruction"),
         }
     }
 
@@ -136,7 +147,7 @@ impl Cpu {
                 // Decrement HL register
                 let value = self.read_value_16(&ArithmeticTarget::HL) - 1;
                 self.set_value_16(&ArithmeticTarget::HL, value);
-            },
+            }
             _ => panic!("Try to set 16 bytes"),
         }
     }
@@ -156,15 +167,18 @@ impl Cpu {
         if test.evaluate(self.registers.f()) {
             // should jump
             match nature {
-                JumpType::Relative8 => ((self.pc as u32 as i32 + (bus.read_byte(self.pc+1) as i8 as i32)) as u16 + 2,8),
-                JumpType::Relative16 => ((self.pc as u32 as i32 + bus.read_word(self.pc+1) as u32 as i32) as u16 + 3,12),
+                JumpType::Relative8 => (
+                    (self.pc as u32 as i32 + (bus.read_byte(self.pc + 1) as i8 as i32)) as u16 + 2,
+                    8,
+                ),
+                JumpType::Pointer16 => (bus.read_word(self.pc + 1), 12),
                 _ => unimplemented!("Jump type missing!"),
             }
         } else {
-            // just continue
+            // just continue and skip the trailing data
             match nature {
-                JumpType::Relative8 => (self.pc + 2,8), 
-                JumpType::Relative16 => (self.pc + 3,12),
+                JumpType::Relative8 => (self.pc + 2, 8),
+                JumpType::Pointer16 => (self.pc + 3, 12),
                 _ => unimplemented!("Jump type missing!"),
             }
         }
@@ -175,41 +189,46 @@ impl Cpu {
         (self.pc + 1, 4)
     }
 
-    fn load(&mut self,target: &ArithmeticTarget, source: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
+    fn load(
+        &mut self,
+        target: &ArithmeticTarget,
+        source: &ArithmeticTarget,
+        bus: &mut MemoryBus,
+    ) -> CpuEffect {
         let (offset, delay) = match target {
             ArithmeticTarget::A => {
                 let value = match source {
-                    ArithmeticTarget::A| ArithmeticTarget::C => self.read_value(source, bus),
+                    ArithmeticTarget::A | ArithmeticTarget::C => self.read_value(source, bus),
                     ArithmeticTarget::DEH => self.read_value(&ArithmeticTarget::DEH, bus),
-                    _=> unimplemented!("Load"),
+                    _ => unimplemented!("Load"),
                 };
                 self.set_value(&ArithmeticTarget::A, value, bus);
-                (1,4)
-            },
+                (1, 4)
+            }
             ArithmeticTarget::B => {
                 let value = match source {
                     ArithmeticTarget::A => self.read_value(&ArithmeticTarget::A, bus),
-                    _=> unimplemented!(),
+                    _ => unimplemented!(),
                 };
                 self.set_value(&ArithmeticTarget::B, value, bus);
-                (1,4)
-            },
+                (1, 4)
+            }
             ArithmeticTarget::C => {
                 let value = match source {
                     ArithmeticTarget::A => self.read_value(&ArithmeticTarget::A, bus),
-                    _=> unimplemented!(),
+                    _ => unimplemented!(),
                 };
                 self.set_value(&ArithmeticTarget::C, value, bus);
-                (1,4)
-            },
+                (1, 4)
+            }
             ArithmeticTarget::H => {
                 let value = match source {
                     ArithmeticTarget::A => self.read_value(&ArithmeticTarget::A, bus),
-                    _=> unimplemented!(),
+                    _ => unimplemented!(),
                 };
                 self.set_value(&ArithmeticTarget::H, value, bus);
-                (1,4)
-            },
+                (1, 4)
+            }
             ArithmeticTarget::HLDec => {
                 // retrieve value
                 let value = match source {
@@ -222,12 +241,9 @@ impl Cpu {
 
                 let new_address = address.wrapping_sub(1);
                 // decrement HL
-                self.set_value_16(
-                    &ArithmeticTarget::HL,
-                    new_address,
-                );
-                (1,4)
-            },
+                self.set_value_16(&ArithmeticTarget::HL, new_address);
+                (1, 4)
+            }
             ArithmeticTarget::HLH => {
                 // retrieve value
                 let value = match source {
@@ -238,17 +254,17 @@ impl Cpu {
                 // write to memory bus
                 bus.write_byte(address, value);
 
-                (1,4)
+                (1, 4)
             }
             _ => unimplemented!("[Load] Uninmplemented target register"),
         };
 
         (self.pc + offset, delay)
     }
-    
+
     /// load8
     fn load8(&mut self, target: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
-        let value = bus.read_byte(self.pc+1);
+        let value = bus.read_byte(self.pc + 1);
 
         self.set_value(target, value, bus);
 
@@ -257,7 +273,7 @@ impl Cpu {
 
     /// load16
     fn load16(&mut self, target: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
-        let value = bus.read_word(self.pc+1);
+        let value = bus.read_word(self.pc + 1);
 
         self.set_value_16(target, value);
 
@@ -266,7 +282,12 @@ impl Cpu {
 
     /// loadh
     /// write to xFF00 + target value
-    fn loadh(&mut self, target: &ArithmeticTarget, source: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
+    fn loadh(
+        &mut self,
+        target: &ArithmeticTarget,
+        source: &ArithmeticTarget,
+        bus: &mut MemoryBus,
+    ) -> CpuEffect {
         // offset from register target
         let offset = self.read_value(target, bus);
 
@@ -301,25 +322,35 @@ impl Cpu {
         (self.pc + 1, 1)
     }
 
-    fn add(&mut self, target: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
-        let value = self.read_value_16(target);
-        let (new_value, did_overflow) = self.registers.hl().overflowing_add(value);
-
-        self.registers.f_as_mut().set_zero(new_value == 0);
+    /// Complement carry flag
+    fn ccf(&mut self) -> CpuEffect {
+        let carry = self.registers.f().carry();
+        self.registers.f_as_mut().set_carry(carry.not());
         self.registers.f_as_mut().set_subtract(false);
-        self.registers.f_as_mut().set_carry(did_overflow);
-
-        let register_hl = self.registers.hl();
-
-        self.registers.f_as_mut().set_half_carry((register_hl & 0x07FF) + (value & 0x07FF) > 0x07FF);
-
-        self.registers.set_hl(new_value);
-
-        (self.pc + 1,8)
+        self.registers.f_as_mut().set_half_carry(false);
+        (self.pc + 1, 4)
     }
 
-    /// Add for u16 i.e. larger registers
-    fn add_16(&mut self, target:&ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
+    /// Add the content of the targeted register to the A register.
+    fn add(&mut self, target: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
+        let value = self.read_value(target, bus);
+        let (new_value, did_overflow) = self.registers.a().overflowing_add(value);
+
+        self.registers.f_as_mut().set_zero(new_value == 0);
+        self.registers.f_as_mut().set_subtract(false);
+        self.registers.f_as_mut().set_carry(did_overflow);
+
+        let register_a = self.registers.a();
+        self.registers.set_a(new_value);
+        self.registers
+            .f_as_mut()
+            .set_half_carry((register_a & 0xF) + (value & 0xF) > 0xF);
+
+        (self.pc + 1, 4)
+    }
+
+    /// Add for u16 i.e. larger registers, may not be used
+    fn _add_16(&mut self, target: &ArithmeticTarget) -> CpuEffect {
         let value = self.read_value_16(target);
 
         let (new_value, did_overflow) = self.registers.hl().overflowing_add(value);
@@ -327,19 +358,19 @@ impl Cpu {
         self.registers.f_as_mut().set_zero(new_value == 0);
         self.registers.f_as_mut().set_subtract(false);
         self.registers.f_as_mut().set_carry(did_overflow);
-        self.registers.f_as_mut().set_zero(new_value == 0);
 
         self.registers.set_hl(new_value);
 
         (self.pc + 1, 4)
     }
 
+    /// Add with carry
     fn adc(&mut self, target: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
         let value = self.read_value(target, bus);
         // if no overflow, value can overflow
         let (mut new_value, mut did_overflow) = self.registers.a().overflowing_add(value);
 
-        if self.registers.f().carry(){
+        if self.registers.f().carry() {
             let (new_value_carry, did_overflow_carry) = new_value.overflowing_add(1);
             new_value = new_value_carry;
             did_overflow |= did_overflow_carry;
@@ -348,19 +379,41 @@ impl Cpu {
         self.registers.f_as_mut().set_zero(new_value == 0);
         self.registers.f_as_mut().set_subtract(false);
         self.registers.f_as_mut().set_carry(did_overflow);
-        self.registers.f_as_mut().set_zero(new_value == 0);
+
         let register_a = self.registers.a();
-        self.registers.f_as_mut().set_half_carry((register_a & 0xF) + (value & 0xF) > 0xF);
+        self.registers
+            .f_as_mut()
+            .set_half_carry((register_a & 0xF) + (value & 0xF) > 0xF);
 
         self.registers.set_a(new_value);
 
-        (self.pc + 1,4)
+        (self.pc + 1, 4)
     }
-
+    /// Subscrate the target value to the A register.
     fn sub(&mut self, target: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
         let value = self.read_value(target, bus);
-        let (mut new_value, did_overflow) = self.registers.a()
-            .overflowing_sub(value);
+        let (new_value, did_overflow) = self.registers.a().overflowing_sub(value);
+
+        self.registers.f_as_mut().set_zero(new_value == 0);
+        self.registers.f_as_mut().set_subtract(true);
+        self.registers.f_as_mut().set_carry(did_overflow);
+
+        let register_a = self.registers.a();
+        self.registers
+            .f_as_mut()
+            .set_half_carry((register_a & 0xF) < (value & 0xF));
+
+        self.registers.set_a(new_value);
+
+        (self.pc + 1, 4)
+    }
+
+    /// Like sub but the carry value is also substracted
+    fn sbc(&mut self, target: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
+        let value = self.read_value(target, bus);
+
+        let (mut new_value, did_overflow) = self.registers.a().overflowing_sub(value);
+
         if self.registers.f().carry() {
             new_value = new_value.wrapping_sub(1);
         }
@@ -368,32 +421,11 @@ impl Cpu {
         self.registers.f_as_mut().set_zero(new_value == 0);
         self.registers.f_as_mut().set_subtract(true);
         self.registers.f_as_mut().set_carry(did_overflow);
-        self.registers.f_as_mut().set_zero(new_value == 0);
 
         let register_a = self.registers.a();
-        self.registers.f_as_mut().set_half_carry((register_a & 0xF) < (value & 0xF));
-
-        self.registers.set_a(new_value);
-
-        (self.pc + 1, 4)
-    }
-
-    fn sbc(&mut self, target: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
-        let value = self.read_value(target, bus);
-
-        let (mut new_value, mut did_overflow) = self.registers.a()
-            .overflowing_sub(value);
-
-        if self.registers.f().carry(){
-            new_value = new_value.wrapping_sub(1);  
-        }
-
-        self.registers.f_as_mut().set_zero(new_value == 0);
-        self.registers.f_as_mut().set_subtract(true);
-        self.registers.f_as_mut().set_carry(did_overflow);
-
-        let register_a = self.registers.a();
-        self.registers.f_as_mut().set_half_carry((register_a & 0xF) < (value & 0xF));
+        self.registers
+            .f_as_mut()
+            .set_half_carry((register_a & 0xF) < (value & 0xF));
 
         self.registers.set_a(new_value);
 
@@ -408,6 +440,9 @@ impl Cpu {
         self.registers.f_as_mut().set_subtract(false);
         self.registers.f_as_mut().set_half_carry(false);
         self.registers.f_as_mut().set_carry(false);
+
+        self.registers.set_a(new_value);
+
         (self.pc + 1, 4)
     }
 
@@ -420,7 +455,7 @@ impl Cpu {
         self.registers.f_as_mut().set_half_carry(false);
         self.registers.f_as_mut().set_carry(false);
 
-        self.set_value(target, new_value, bus);
+        self.registers.set_a(new_value);
 
         (self.pc + 1, 4)
     }
@@ -433,6 +468,8 @@ impl Cpu {
         self.registers.f_as_mut().set_subtract(false);
         self.registers.f_as_mut().set_half_carry(false);
         self.registers.f_as_mut().set_carry(false);
+
+        self.registers.set_a(new_value);
         (self.pc + 1, 4)
     }
 
@@ -443,31 +480,56 @@ impl Cpu {
         self.registers.f_as_mut().set_zero(new_value == 0);
         self.registers.f_as_mut().set_subtract(true);
         self.registers.f_as_mut().set_carry(did_overflow);
-        self.registers.f_as_mut().set_zero(new_value == 0);
+
         let register_a = self.registers.a();
-        self.registers.f_as_mut().set_half_carry((register_a & 0xF) + (value & 0xF) > 0xF);
+        self.registers
+            .f_as_mut()
+            .set_half_carry((register_a & 0xF) + (value & 0xF) > 0xF);
 
         (self.pc + 1, 4)
     }
 
-    fn sla(&mut self, target: &ArithmeticTarget) -> CpuEffect {
-        unimplemented!();
+    /// Shift left arithmetic. Multiplies by 2
+    fn sla(&mut self, target: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
+        let (new_value, did_overflow) = self.registers.a().overflowing_mul(2);
+
+        self.registers.f_as_mut().set_zero(new_value == 0);
+        self.registers.f_as_mut().set_subtract(false);
+        self.registers.f_as_mut().set_half_carry(false);
+        self.registers.f_as_mut().set_carry(did_overflow);
+
+        self.set_value(target, new_value, bus);
+
         (self.pc + 1, 4)
     }
 
-    fn sra(&mut self, target: &ArithmeticTarget) -> CpuEffect {
-        unimplemented!();
+    /// Shift right arithmetic. Divides by 2
+    fn sra(&mut self, target: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
+        let (new_value, did_overflow) = self.registers.a().overflowing_div(2);
+
+        self.registers.f_as_mut().set_zero(new_value == 0);
+        self.registers.f_as_mut().set_subtract(false);
+        self.registers.f_as_mut().set_half_carry(false);
+        self.registers.f_as_mut().set_carry(did_overflow);
+
+        self.set_value(target, new_value, bus);
+
         (self.pc + 1, 4)
     }
-    
+
+    /// Bit shift right
+    fn srl(&mut self, _target: &ArithmeticTarget, _bus: &mut MemoryBus) -> CpuEffect {
+        todo!()
+    }
+
     // rotate left
     fn rl(&mut self, target: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
         let value = self.read_value(target, bus);
-    
+
         // check first bit
         let carry = (value & 0x80) == 0x80;
 
-        let new_value = value << 1 | (if self.registers.f().carry() {1} else {0});
+        let new_value = value << 1 | (if self.registers.f().carry() { 1 } else { 0 });
 
         self.registers.f_as_mut().set_carry(carry);
 
@@ -476,41 +538,81 @@ impl Cpu {
         (self.pc + 1, 8)
     }
 
-    fn inc(&mut self, target: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
-        let value = self.read_value(&target, bus);
-        let (new_value, did_overflow) = value.overflowing_add(1);
+    fn rlc(&mut self, _target: &ArithmeticTarget, _bus: &mut MemoryBus) -> CpuEffect {
+        todo!()
+    }
 
-        let register_a = self.registers.a();
+    /// Rotate right - rotate via the carry flag by one bit
+    fn rr(&mut self, _target: &ArithmeticTarget, _bus: &mut MemoryBus) -> CpuEffect {
+        todo!()
+    }
+    ///
+    /// Rotate right - rotate NOT via the carry flag by one bit
+    fn rrc(&mut self, _target: &ArithmeticTarget, _bus: &mut MemoryBus) -> CpuEffect {
+        todo!()
+    }
+
+    // Rotate right without carry the register A
+    fn rrca(&mut self) -> CpuEffect {
+        todo!()
+    }
+    // Rotate left without carry the register A
+    fn rlca(&mut self) -> CpuEffect {
+        todo!()
+    }
+
+    /// Increment te value of the specified register by one
+    fn inc(&mut self, target: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
+        let value = self.read_value(target, bus);
+        let (new_value, _did_overflow) = value.overflowing_add(1);
+
         self.registers.f_as_mut().set_zero(new_value == 0);
         self.registers.f_as_mut().set_subtract(false);
-        self.registers.f_as_mut().set_half_carry((register_a & 0xF) + (value & 0xF) > 0xF);
-        self.registers.f_as_mut().set_carry(did_overflow);
+        // CHECKME
+        self.registers
+            .f_as_mut()
+            .set_half_carry((new_value & 0xF) + (value & 0xF) > 0xF);
 
-        self.set_value(&target, new_value, bus);
+        self.set_value(target, new_value, bus);
 
         //TODO : case 16 registers
         (self.pc + 1, 4)
     }
 
     fn dec(&mut self, target: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
-        let value = self.read_value(&target, bus);
+        let value = self.read_value(target, bus);
         let new_value = value.wrapping_sub(1);
 
         let register_a = self.registers.a();
         self.registers.f_as_mut().set_zero(new_value == 0);
         self.registers.f_as_mut().set_subtract(true);
-        self.registers.f_as_mut().set_half_carry((register_a & 0xF) == 0);
+        self.registers
+            .f_as_mut()
+            .set_half_carry((register_a & 0xF) == 0);
 
-        self.set_value(&target, new_value, bus);
+        self.set_value(target, new_value, bus);
 
         // TODO
+        (self.pc + 1, 4)
+    }
+    /// Set the complement to register A
+    fn cpl(&mut self) -> CpuEffect {
+        let value = self.registers.a();
+        let new_value = value ^ 0xff;
+
+        self.registers.f_as_mut().set_subtract(true);
+        self.registers.f_as_mut().set_half_carry(true);
+
+        self.registers.set_a(new_value);
+
+        // CHECKME
         (self.pc + 1, 4)
     }
 
     /// set register bit at bit position to 1
     fn set(&mut self, target: &ArithmeticTarget, bit_pos: u8, bus: &mut MemoryBus) -> CpuEffect {
         let value = self.read_value(target, bus);
-        let new_value = value | 1u8<<bit_pos;
+        let new_value = value | 1u8 << bit_pos;
 
         self.set_value(target, new_value, bus);
 
@@ -520,7 +622,7 @@ impl Cpu {
     /// reset register bit at bit position to 0
     fn reset(&mut self, target: &ArithmeticTarget, bit_pos: u8, bus: &mut MemoryBus) -> CpuEffect {
         let value = self.read_value(target, bus);
-        let new_value = value & (0xFF ^ (1<<bit_pos));
+        let new_value = value & (0xFF ^ (1 << bit_pos));
 
         self.set_value(target, new_value, bus);
 
@@ -531,7 +633,9 @@ impl Cpu {
     fn bit(&mut self, target: &ArithmeticTarget, bit_pos: u8, bus: &mut MemoryBus) -> CpuEffect {
         let value = self.read_value(target, bus);
 
-        self.registers.f_as_mut().set_zero(value & (1<<bit_pos) == 0);
+        self.registers
+            .f_as_mut()
+            .set_zero(value & (1 << bit_pos) == 0);
         self.registers.f_as_mut().set_subtract(false);
         self.registers.f_as_mut().set_half_carry(true);
 
@@ -550,7 +654,6 @@ impl Cpu {
         self.registers.f_as_mut().set_half_carry(false);
         self.registers.f_as_mut().set_carry(false);
 
-
         (self.pc + 1, 8)
     }
 
@@ -567,21 +670,20 @@ impl Cpu {
     fn push_word(&mut self, value: u16, bus: &mut MemoryBus) {
         // decrese stack
         self.sp = self.sp.wrapping_sub(1);
-        
+
         // write most significant part first
-        bus.write_byte(self.sp, (value>>8) as u8);
+        bus.write_byte(self.sp, (value >> 8) as u8);
 
         // decrese stack
         self.sp = self.sp.wrapping_sub(1);
 
-        // write least significant part then 
+        // write least significant part then
         bus.write_byte(self.sp, (value & 0xFF) as u8)
     }
 
     /// Pop 2 bytes from the stack
-    fn pop(&mut self, target: &ArithmeticTarget, bus:&MemoryBus) -> CpuEffect {
-
-        let value = self.pop_word(bus); 
+    fn pop(&mut self, target: &ArithmeticTarget, bus: &MemoryBus) -> CpuEffect {
+        let value = self.pop_word(bus);
 
         self.set_value_16(target, value);
 
@@ -600,7 +702,7 @@ impl Cpu {
     }
 
     /// Call function
-    fn call(&mut self, test : &JumpTest, bus: &mut MemoryBus) -> CpuEffect {
+    fn call(&mut self, test: &JumpTest, bus: &mut MemoryBus) -> CpuEffect {
         let next_pc = self.pc + 3;
 
         if test.evaluate(self.registers.f()) {
@@ -614,296 +716,19 @@ impl Cpu {
 
     /// Return from function
     fn ret(&mut self, test: &JumpTest, bus: &MemoryBus) -> CpuEffect {
-        
         if test.evaluate(self.registers.f()) {
             let address = self.pop_word(bus);
 
             // CHEKME
-            return (address,16)
+            return (address, 16);
         }
         // else juste skip?
 
         //TODO
         (self.pc + 1, 20)
-
     }
 }
 
 #[cfg(test)]
-mod test_8bit {
-    use crate::gameboy::{arithmetictarget::ArithmeticTarget, instruction::Instruction, memory::MemoryBus};
-
-    use super::Cpu;
-    #[test]
-    fn add() {
-        let mut cpu = Cpu::new();
-        let mut memory_bus = MemoryBus::default();
-        cpu.registers.set_a(1);
-        cpu.registers.set_b(2);
-        let instruction = Instruction::Add(ArithmeticTarget::B);
-        cpu.execute(instruction, &mut memory_bus);
-    
-        assert_eq!(cpu.registers.a(), 3)
-    }    
-
-    #[test]
-    fn adc() {
-        todo!()
-    }
-
-    #[test]
-    fn sub() {
-        todo!()
-    }
-
-    #[test]
-    fn sbc() {
-        todo!()
-    }
-
-    #[test]
-    fn and() {
-        todo!()
-    }
-
-    #[test]
-    fn xor() {
-        todo!()
-    }
-
-    #[test]
-    fn or() {
-        todo!()
-    }
-
-    #[test]
-    fn cp() {
-        todo!()
-    }
-
-    #[test]
-    fn inc() {
-        todo!()
-    }
-
-    #[test]
-    fn dec() {
-        todo!()
-    }
-
-    #[test]
-    fn daa() {
-        todo!()
-    }
-
-    #[test]
-    fn cpl() {
-        todo!()
-    }
-}
-
-#[cfg(test)]
-mod test_16bits {
-    #[test]
-    fn add_hl() {
-        todo!()
-    }
-
-    #[test]
-    fn inc() {
-        todo!()
-    }
-
-    #[test]
-    fn dec() {
-        todo!()
-    }
-
-    #[test]
-    fn add_sp() {
-        todo!()
-    }
-
-    #[test]
-    fn ld() {
-        todo!()
-    }
-}
-
-#[cfg(test)]
-mod test_rotate_shift {
-    #[test]
-    fn rlca() {
-        todo!()
-    }
-
-    #[test]
-    fn rla() {
-        todo!()
-    }
-
-    #[test]
-    fn rrca() {
-        todo!()
-    }
-
-    #[test]
-    fn rra() {
-        todo!()
-    }
-
-    #[test]
-    fn rlc() {
-        todo!()
-    }
-
-    #[test]
-    fn rl() {
-        todo!()
-    }
-
-    #[test]
-    fn rrc() {
-        todo!()
-    }
-
-    #[test]
-    fn rr() {
-        todo!()
-    }
-
-    #[test]
-    fn sla() {
-        todo!()
-    }
-
-    #[test]
-    fn swap() {
-        todo!()
-    }
-
-    #[test]
-    fn sra() {
-        todo!()
-    }
-
-    #[test]
-    fn srl() {
-        todo!()
-    }
-}
-
-#[cfg(test)]
-mod test_1bit {
-    #[test]
-    fn bit() {
-        todo!()
-    }
-
-    #[test]
-    fn set() {
-        todo!()
-    }
-
-    #[test]
-    fn rst() {
-        todo!()
-    }
-
-}
-
-#[cfg(test)]
-mod test_cpu_control {
-    #[test]
-    fn ccf() {
-        todo!()
-    }
-
-    #[test]
-    fn scf() {
-        todo!()
-    }
-
-    #[test]
-    fn nop() {
-        todo!()
-    }
-
-    #[test]
-    fn halt() {
-        todo!()
-    }
-
-    #[test]
-    fn stop() {
-        todo!()
-    }
-
-    #[test]
-    fn di() {
-        todo!()
-    }
-
-    #[test]
-    fn ei() {
-        todo!()
-    }
-}
-
-#[cfg(test)]
-mod test_jump {
-    #[test]
-    fn jp_nn() {
-        todo!()
-    }
-
-    #[test]
-    fn jp_hl() {
-        todo!()
-    }
-
-    #[test]
-    fn jp_conditionnal() {
-        todo!()
-    }
-
-    #[test]
-    fn jp_relative() {
-        todo!()
-    }
-
-    #[test]
-    fn jp_relative_conditionnal() {
-        todo!()
-    }
-
-    #[test]
-    fn call_nn() {
-        todo!()
-    }
-
-    #[test]
-    fn call_conditionnal() {
-        todo!()
-    }
-
-    #[test]
-    fn ret() {
-        todo!()
-    }
-
-    #[test]
-    fn ret_conditionnal() {
-        todo!()
-    }
-
-    #[test]
-    fn ret_interrupt() {
-        todo!()
-    }
-
-    #[test]
-    fn rst() {
-        todo!()
-    }
-}
+#[path = "cpu_tests.rs"]
+mod tests;

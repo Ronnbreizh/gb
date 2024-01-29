@@ -18,7 +18,7 @@ pub trait Memory {
     fn buffer_as_mut(&mut self) -> &mut [u8];
 
     /// write byte
-    fn write_byte(&mut self, address: u16, content : u8) {
+    fn write_byte(&mut self, address: u16, content: u8) {
         let address = Self::local_address(address);
 
         self.buffer_as_mut()[address as usize] = content;
@@ -28,14 +28,13 @@ pub trait Memory {
     fn write_word(&mut self, address: u16, content: u16) {
         let address = Self::local_address(address);
         // lower part
-        self.buffer_as_mut()[address as usize] = (content ^ 0xFF )as u8;
+        self.buffer_as_mut()[address as usize] = (content ^ 0xFF) as u8;
         // higher part
         self.buffer_as_mut()[(address + 1) as usize] = (content >> 8) as u8;
     }
 
-
     /// transmute global address into local address
-    fn local_address(address : u16) -> u16 {
+    fn local_address(address: u16) -> u16 {
         address - Self::start()
     }
 
@@ -52,7 +51,8 @@ pub trait Memory {
         let address = Self::local_address(address);
 
         // beware of the endianess
-        (self.buffer()[address as usize] as u16) | ((self.buffer()[(address +1 )as usize] as u16) << 4)
+        (self.buffer()[address as usize] as u16)
+            | ((self.buffer()[(address + 1) as usize] as u16) << 4)
     }
 }
 
@@ -61,7 +61,7 @@ mod test {
     use super::Memory;
 
     struct TestMemory {
-        buffer: [u8;5]
+        buffer: [u8; 5],
     }
 
     impl Memory for TestMemory {
@@ -84,8 +84,8 @@ mod test {
 
     #[test]
     fn test_memory() {
-        let buffer = [1,2,3,4,5];
-        let mut memory = TestMemory{buffer};
+        let buffer = [1, 2, 3, 4, 5];
+        let mut memory = TestMemory { buffer };
 
         assert_eq!(memory.read_byte(4), 1);
         assert_eq!(memory.read_byte(8), 5);
@@ -97,8 +97,8 @@ mod test {
     #[test]
     #[should_panic]
     fn test_invalid_write() {
-        let buffer = [1,2,3,4,5];
-        let mut memory = TestMemory{buffer};
+        let buffer = [1, 2, 3, 4, 5];
+        let mut memory = TestMemory { buffer };
 
         memory.write_byte(2, 23);
     }
@@ -106,8 +106,8 @@ mod test {
     #[test]
     #[should_panic]
     fn test_invalid_read() {
-        let buffer = [1,2,3,4,5];
-        let memory = TestMemory{buffer};
+        let buffer = [1, 2, 3, 4, 5];
+        let memory = TestMemory { buffer };
 
         memory.read_byte(32);
     }

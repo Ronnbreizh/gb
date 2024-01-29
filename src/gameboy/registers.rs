@@ -9,20 +9,20 @@ pub struct Registers {
     e: u8,
     f: FlagsRegister,
     h: u8,
-    l: u8
+    l: u8,
 }
 
 impl Registers {
     pub fn new() -> Self {
         Self {
-            a:0,
-            b:0,
-            c:0,
-            d:0,
-            e:0,
-            f: FlagsRegister::from(0 as u8),
-            h:0,
-            l:0,
+            a: 0,
+            b: 0,
+            c: 0,
+            d: 0,
+            e: 0,
+            f: FlagsRegister::from(0u8),
+            h: 0,
+            l: 0,
         }
     }
 
@@ -82,9 +82,9 @@ impl Registers {
         self.e = value;
     }
 
-    pub fn set_f(&mut self, value: u8) {
-        self.f = FlagsRegister::from(value);
-    }
+    // pub fn set_f(&mut self, value: u8) {
+    //     self.f = FlagsRegister::from(value);
+    // }
 
     pub fn set_h(&mut self, value: u8) {
         self.h = value;

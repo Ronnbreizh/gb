@@ -1,13 +1,20 @@
-use std::convert::TryInto;
-use std::fmt::format;
 use std::fs::File;
 use std::io::Read;
 
-use crate::gameboy::memory::{BANK_0_END, BANK_0_START, BANK_1_END, BANK_1_START, ECHO_RAM_END, ECHO_RAM_START, HIGH_RAM_END, HIGH_RAM_START, INTERRUPTS_REGISTER, IO_REGISTER_END, IO_REGISTER_START, SPRITE_TABLE_END, SPRITE_TABLE_START, VRAM_END, VRAM_START};
 use crate::gameboy::memory::memory_behavior::Memory;
+use crate::gameboy::memory::{
+    BANK_0_END, BANK_0_START, BANK_1_END, BANK_1_START, ECHO_RAM_END, ECHO_RAM_START, HIGH_RAM_END,
+    HIGH_RAM_START, INTERRUPTS_REGISTER, IO_REGISTER_END, IO_REGISTER_START, SPRITE_TABLE_END,
+    SPRITE_TABLE_START, VRAM_END, VRAM_START,
+};
 
-use super::{BOOT_SEQUENCE_PATH, BOOT_SEQUENCE_SIZE, ROM_END, ROM_START, EXT_RAM_START, EXT_RAM_END};
-use super::memory_zone::{Bank0, Bank1, EchoRam, ExternalRam, HighRam, InterruptsRegister, IoRegister, ReadOnlyMemory, SpriteAttributeTable, VideoRam};
+use super::memory_zone::{
+    Bank0, Bank1, EchoRam, ExternalRam, HighRam, InterruptsRegister, IoRegister, ReadOnlyMemory,
+    SpriteAttributeTable, VideoRam,
+};
+use super::{
+    BOOT_SEQUENCE_PATH, BOOT_SEQUENCE_SIZE, EXT_RAM_END, EXT_RAM_START, ROM_END, ROM_START,
+};
 
 #[derive(Debug, Default)]
 /// The memory bus is the shared memory of the GB
@@ -21,19 +28,19 @@ pub struct MemoryBus {
     /// RAM brought by the cartridge
     external_ram: ExternalRam,
     /// Work RAM. Does not exist in GB
-    bank_0 : Bank0,
+    bank_0: Bank0,
     /// Work RAM. Presents with GB and CGB
-    bank_1 : Bank1,
+    bank_1: Bank1,
     /// Echo RAM. Usually not used
-    echo_ram : EchoRam,
+    echo_ram: EchoRam,
     /// Sprite attribute table
-    sprite_attribute_table : SpriteAttributeTable,
+    sprite_attribute_table: SpriteAttributeTable,
     /// IO register to store inputs, sound etc
-    io_register : IoRegister,
+    io_register: IoRegister,
     /// Yet an other RAM
-    high_ram : HighRam,
+    high_ram: HighRam,
     /// Interrupt register
-    interrupt_register : InterruptsRegister,
+    interrupt_register: InterruptsRegister,
 }
 
 impl MemoryBus {
@@ -79,7 +86,7 @@ impl MemoryBus {
 
     /// return video ram buffer
     /// usefull for GPU
-    pub fn vram(&self) -> &[u8] {
+    pub fn _vram(&self) -> &[u8] {
         self.video_ram.buffer()
     }
 
@@ -92,7 +99,9 @@ impl MemoryBus {
             BANK_0_START..=BANK_0_END => self.bank_0.write_byte(address, value),
             BANK_1_START..=BANK_1_END => self.bank_1.write_byte(address, value),
             ECHO_RAM_START..=ECHO_RAM_END => self.echo_ram.write_byte(address, value),
-            SPRITE_TABLE_START..=SPRITE_TABLE_END => self.sprite_attribute_table.write_byte(address,value ),
+            SPRITE_TABLE_START..=SPRITE_TABLE_END => {
+                self.sprite_attribute_table.write_byte(address, value)
+            }
             IO_REGISTER_START..=IO_REGISTER_END => self.io_register.write_byte(address, value),
             HIGH_RAM_START..=HIGH_RAM_END => self.high_ram.write_byte(address, value),
             INTERRUPTS_REGISTER => self.interrupt_register.write_byte(address, value),
@@ -100,8 +109,8 @@ impl MemoryBus {
         }
     }
 
-    /// write word to memory
-    pub fn write_word(&mut self, address: u16, value: u16) {
+    /// write word to memory in the proper subspace
+    pub fn _write_word(&mut self, address: u16, value: u16) {
         match address {
             ROM_START..=ROM_END => self.read_only_memory.write_word(address, value),
             VRAM_START..=VRAM_END => self.video_ram.write_word(address, value),
@@ -109,7 +118,9 @@ impl MemoryBus {
             BANK_0_START..=BANK_0_END => self.bank_0.write_word(address, value),
             BANK_1_START..=BANK_1_END => self.bank_1.write_word(address, value),
             ECHO_RAM_START..=ECHO_RAM_END => self.echo_ram.write_word(address, value),
-            SPRITE_TABLE_START..=SPRITE_TABLE_END => self.sprite_attribute_table.write_word(address,value ),
+            SPRITE_TABLE_START..=SPRITE_TABLE_END => {
+                self.sprite_attribute_table.write_word(address, value)
+            }
             IO_REGISTER_START..=IO_REGISTER_END => self.io_register.write_word(address, value),
             HIGH_RAM_START..=HIGH_RAM_END => self.high_ram.write_word(address, value),
             INTERRUPTS_REGISTER => self.interrupt_register.write_word(address, value),
@@ -122,8 +133,9 @@ impl MemoryBus {
         let memory = &mut self.read_only_memory;
         let mut boot_sequence = File::open(BOOT_SEQUENCE_PATH).unwrap();
 
-        let boot_size = boot_sequence.read(memory.buffer_as_mut())
-            .map_err(|e| format!("Failed to parse boot sequence : {}", e.to_string()))?;
+        let boot_size = boot_sequence
+            .read(memory.buffer_as_mut())
+            .map_err(|e| format!("Failed to parse boot sequence : {}", e))?;
         if boot_size != BOOT_SEQUENCE_SIZE {
             Err("Invalid read size".to_string())
         } else {
@@ -132,15 +144,15 @@ impl MemoryBus {
     }
 
     /// Load cartridge after the boot sequence.
-    pub fn load_cartridge(&mut self, cartrige_path: &str) ->  Result<(), String>{
+    pub fn load_cartridge(&mut self, cartrige_path: &str) -> Result<(), String> {
         let memory = &mut self.read_only_memory;
-        let mut cartridge = File::open(cartrige_path)
-            .map_err(|e| e.to_string())?; 
+        let mut cartridge = File::open(cartrige_path).map_err(|e| e.to_string())?;
 
         // write content in memoy after boot sequence size
-        cartridge.read(&mut memory.buffer_as_mut()[BOOT_SEQUENCE_SIZE..])
-            .map_err(|e| format!("Failed to parse cartride : {}", e.to_string()))?;
-        
+        cartridge
+            .read(&mut memory.buffer_as_mut()[BOOT_SEQUENCE_SIZE..])
+            .map_err(|e| format!("Failed to parse cartride : {}", e))?;
+
         Ok(())
     }
 }
