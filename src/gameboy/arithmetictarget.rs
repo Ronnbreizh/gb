@@ -1,4 +1,17 @@
 #[allow(clippy::upper_case_acronyms)]
+pub enum WideArithmeticTarget {
+    // Double register
+    HL,
+    BC,
+    DE,
+    AF,
+    // STACK
+    SP,
+    // MEMORY
+    ReadWord,
+}
+
+#[allow(clippy::upper_case_acronyms)]
 pub enum ArithmeticTarget {
     // registers
     A,
@@ -8,26 +21,25 @@ pub enum ArithmeticTarget {
     E,
     H,
     L,
-    // Double register
-    HL,
-    BC,
-    DE,
-    AF,
 
-    // STACK
-    SP,
+    // Read one byte
+    ReadByte,
 
-    // HEAP
+    // Read one byte in PC, then access `0xFF00 + byte`
+    FFRead,
+ 
+    // Access `0xFF00 + content of register C`
+    FFC,
 
     // A double register can be interpreted as a pointer to the heap
     // Zone pointed by BC register
-    BCH,
+    BCTarget,
     // Zone pointed by DE register
-    DEH,
-
+    DETarget,
     // Zone pointed by HL register
-    // read/write to the heap
-    HLH,
+    HLTarget,
+
+    // CHECKME
     // read/write then decrement
     HLDec,
     // read/write then increment
