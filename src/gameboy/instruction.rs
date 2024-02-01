@@ -1,6 +1,7 @@
 use super::arithmetictarget::{ArithmeticTarget, WideArithmeticTarget};
 use super::flagsregister::FlagsRegister;
 
+#[derive(Debug)]
 pub enum JumpTest {
     Zero,
     NotZero,
@@ -24,6 +25,7 @@ impl JumpTest {
 /// Nature of the Jump.
 /// Pointers are a raw adress, like a function pointer.
 /// Relative is moving below/above by X instructions
+#[derive(Debug)]
 pub enum JumpType {
     Relative8,
     _Relative16,
@@ -847,45 +849,44 @@ impl Instruction {
 impl ToString for Instruction {
     fn to_string(&self) -> String {
         match self {
-            Instruction::Nop => "nop",
-            Instruction::Adc(_) => "adc",
-            Instruction::Add(_) => "add",
-            Instruction::AddHL(_) => "addhl",
-            Instruction::And(_) => "and",
-            Instruction::Ccf => "ccf",
-            Instruction::Cp(_) => "cp",
-            Instruction::Cpl => "cpl",
-            Instruction::Dec(_) => "dec",
-            Instruction::Inc(_) => "inc",
-            Instruction::Or(_) => "or",
-            Instruction::Rla => "rla",
-            Instruction::Rlc(_) => "rlc",
-            Instruction::Rl(_) => "rl",
-            Instruction::Rr(_) => "rr",
-            Instruction::Rra => "rra",
-            Instruction::Rrc(_) => "rrc",
-            Instruction::Rrca => "rrca",
-            Instruction::Rlca => "rlca",
-            Instruction::Sbc(_) => "sbc",
-            Instruction::Scf => "scf",
-            Instruction::Sla(_) => "sla",
-            Instruction::Sra(_) => "sra",
-            Instruction::Srl(_) => "srl",
-            Instruction::Sub(_) => "sub",
-            Instruction::Swap(_) => "swap",
-            Instruction::Xor(_) => "xor",
-            Instruction::Load { .. } => "load",
-            Instruction::Load16{..} => "load16",
-            Instruction::Jump(_, _) => "jump",
-            Instruction::Push(_) => "push",
-            Instruction::Pop(_) => "pop",
-            Instruction::Call(_) => "call",
-            Instruction::Ret(_) => "ret",
-            Instruction::Bit(_, _) => "bit",
-            Instruction::Set(_, _) => "set",
-            Instruction::Res(_, _) => "res",
-            Instruction::Halt => "halt",
+            Instruction::Nop => "nop".to_string(),
+            Instruction::Adc(_) => "adc".to_string(),
+            Instruction::Add(_) => "add".to_string(),
+            Instruction::AddHL(_) => "addhl".to_string(),
+            Instruction::And(_) => "and".to_string(),
+            Instruction::Ccf => "ccf".to_string(),
+            Instruction::Cp(_) => "cp".to_string(),
+            Instruction::Cpl => "cpl".to_string(),
+            Instruction::Dec(_) => "dec".to_string(),
+            Instruction::Inc(_) => "inc".to_string(),
+            Instruction::Or(_) => "or".to_string(),
+            Instruction::Rla => "rla".to_string(),
+            Instruction::Rlc(_) => "rlc".to_string(),
+            Instruction::Rl(_) => "rl".to_string(),
+            Instruction::Rr(_) => "rr".to_string(),
+            Instruction::Rra => "rra".to_string(),
+            Instruction::Rrc(_) => "rrc".to_string(),
+            Instruction::Rrca => "rrca".to_string(),
+            Instruction::Rlca => "rlca".to_string(),
+            Instruction::Sbc(_) => "sbc".to_string(),
+            Instruction::Scf => "scf".to_string(),
+            Instruction::Sla(_) => "sla".to_string(),
+            Instruction::Sra(_) => "sra".to_string(),
+            Instruction::Srl(_) => "srl".to_string(),
+            Instruction::Sub(_) => "sub".to_string(),
+            Instruction::Swap(_) => "swap".to_string(),
+            Instruction::Xor(target) => format!("xor {:?}^A", target),
+            Instruction::Load { from, to } => format!("load {:?}->{:?}", from, to),
+            Instruction::Load16{from, to} => format!("load16 {:?}->{:?}", from, to),
+            Instruction::Jump(test, kind) => format!("jump-{:?}-{:?}",test, kind),
+            Instruction::Push(_) => "push".to_string(),
+            Instruction::Pop(_) => "pop".to_string(),
+            Instruction::Call(_) => "call".to_string(),
+            Instruction::Ret(_) => "ret".to_string(),
+            Instruction::Bit(target, bit_number) => format!("bit {} of {:?}", bit_number, target),
+            Instruction::Set(_, _) => "set".to_string(),
+            Instruction::Res(_, _) => "res".to_string(),
+            Instruction::Halt => "halt".to_string(),
         }
-        .to_string()
     }
 }

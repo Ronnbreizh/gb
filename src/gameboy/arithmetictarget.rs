@@ -1,4 +1,5 @@
 #[allow(clippy::upper_case_acronyms)]
+#[derive(Debug)]
 pub enum WideArithmeticTarget {
     // Double register
     HL,
@@ -12,6 +13,7 @@ pub enum WideArithmeticTarget {
 }
 
 #[allow(clippy::upper_case_acronyms)]
+#[derive(Debug)]
 pub enum ArithmeticTarget {
     // registers
     A,

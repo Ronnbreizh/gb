@@ -33,8 +33,8 @@ impl Cpu {
         let instruction = match instruction_byte {
             // prefetched
             0xCB => {
-                let instruction_byte = bus.read_byte(self.pc + 1);
-                println!("\\\\=> Prefix Ins : {:X}\t", instruction_byte);
+                self.pc += 1;
+                let instruction_byte = bus.read_byte(self.pc);
                 Instruction::from_prefixed_byte(instruction_byte)
             }
             _ => Instruction::from_byte(instruction_byte),
@@ -42,7 +42,7 @@ impl Cpu {
         .unwrap_or_else(|| panic!("Unknown instruction : 0x{:x}", instruction_byte));
 
         println!(
-            "Instruction : {:4x}\t{}\t Pc : {:x}",
+            "|0x{:2x}|{:24}|Pc:0x{:04x}|",
             instruction_byte,
             instruction.to_string(),
             self.pc
@@ -67,7 +67,7 @@ impl Cpu {
             Instruction::Inc(target) => self.inc(&target, bus),
             Instruction::Or(target) => self.or(&target, bus),
             Instruction::Res(target, byte) => self.reset(&target, byte, bus),
-            Instruction::Rla => self.rl(&ArithmeticTarget::A, bus),
+            Instruction::Rla => self.rla(),
             Instruction::Rlc(target) => self.rlc(&target, bus),
             Instruction::Rr(target) => self.rr(&target, bus),
             Instruction::Rl(target) => self.rl(&target, bus),
@@ -164,8 +164,17 @@ impl Cpu {
                 bus.write_byte(address, value);
                 4
             },
-            ArithmeticTarget::FFRead => todo!(),
-            ArithmeticTarget::FFC => todo!(),
+            ArithmeticTarget::FFRead => {
+                let offset = bus.read_byte(self.pc + 1);
+                let address = 0xFF00 + (offset as u16);
+                bus.write_byte(address, value);
+                4
+            },
+            ArithmeticTarget::FFC => {
+                let address = 0xFF00 + (self.registers.c() as u16);
+                bus.write_byte(address, value);
+                4
+            },
             ArithmeticTarget::ReadByte => unreachable!("Can't right directly to next byte."),
             // SPECIAL
             ArithmeticTarget::HLDec => {
@@ -432,6 +441,21 @@ impl Cpu {
         todo!()
     }
 
+    // rotate left for register A
+    fn rla(&mut self) -> CpuEffect {
+        let value = self.registers.a();
+
+        // check first bit
+        let carry = (value & 0x80) == 0x80;
+
+        let new_value = value << 1 | (if self.registers.f().carry() { 1 } else { 0 });
+
+        self.registers.f_as_mut().set_carry(carry);
+
+        self.registers.set_a(new_value);
+        (self.pc + 1 , 4)
+    }
+
     // rotate left
     fn rl(&mut self, target: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
         let (value, pc_offset, read_offset) = self.read_value(target, bus);
@@ -445,7 +469,7 @@ impl Cpu {
 
         let write_offset = self.write_value(target, new_value, bus);
 
-        (self.pc + 1 + pc_offset, 4+read_offset+write_offset)
+        (self.pc + 1 + pc_offset , 8+read_offset+write_offset)
     }
 
     fn rlc(&mut self, _target: &ArithmeticTarget, _bus: &mut MemoryBus) -> CpuEffect {
@@ -492,12 +516,11 @@ impl Cpu {
         let (value, pc_offset, read_offset) = self.read_value(target, bus);
         let new_value = value.wrapping_sub(1);
 
-        let register_a = self.registers.a();
         self.registers.f_as_mut().set_zero(new_value == 0);
         self.registers.f_as_mut().set_subtract(true);
         self.registers
             .f_as_mut()
-            .set_half_carry((register_a & 0xF) == 0);
+            .set_half_carry((value & 0xF) == 0);
 
         let write_offset = self.write_value(target, new_value, bus);
 
@@ -542,12 +565,11 @@ impl Cpu {
 
         self.registers
             .f_as_mut()
-            .set_zero(value & (1 << bit_pos) == 0);
+            .set_zero((value & (1 << bit_pos)) == 0);
         self.registers.f_as_mut().set_subtract(false);
         self.registers.f_as_mut().set_half_carry(true);
 
-        //TODO 12 sometimes
-        (self.pc + 2 + pc_offset, 8+read_offset)
+        (self.pc + 1 + pc_offset, 8+read_offset)
     }
 
     /// swap
