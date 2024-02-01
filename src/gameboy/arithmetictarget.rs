@@ -29,7 +29,7 @@ pub enum ArithmeticTarget {
 
     // Read one byte in PC, then access `0xFF00 + byte`
     FFRead,
- 
+
     // Access `0xFF00 + content of register C`
     FFC,
 
