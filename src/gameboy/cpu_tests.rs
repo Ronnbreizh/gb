@@ -198,10 +198,10 @@ mod instructions {
     fn cpl() {
         let mut cpu = Cpu::new();
         let mut memory_bus = MemoryBus::default();
-        cpu.registers.set_b(0x01);
+        cpu.registers.set_a(0x01);
         let instruction = Instruction::Cpl;
         cpu.execute(instruction, &mut memory_bus);
-        assert_eq!(cpu.registers.b(), 0xfe);
+        assert_eq!(cpu.registers.a(), 0xfe);
         assert!(cpu.registers.f().half_carry());
         assert!(cpu.registers.f().subtract());
     }
@@ -298,21 +298,54 @@ mod test_rotate_shift {
     }
 }
 
-#[cfg(NON)]
 mod test_1bit {
+    use super::*;
     #[test]
     fn bit() {
-        todo!()
+        let mut cpu = Cpu::new();
+        let mut memory_bus = MemoryBus::default();
+        cpu.registers.set_b(0b0100_0000);
+        let instruction = Instruction::Bit(ArithmeticTarget::B, 6);
+        cpu.execute(instruction, &mut memory_bus);
+        assert_eq!(cpu.registers.b(), 0b0100_0000);
+        assert!(cpu.registers.f().half_carry());
+        assert!(cpu.registers.f().zero().not());
+        assert!(cpu.registers.f().subtract().not());
+        // not carry; zero
+        let instruction = Instruction::Bit(ArithmeticTarget::B, 7);
+        cpu.execute(instruction, &mut memory_bus);
+        assert_eq!(cpu.registers.b(), 0b0100_0000);
+        assert!(cpu.registers.f().half_carry());
+        assert!(cpu.registers.f().zero());
+        assert!(cpu.registers.f().subtract().not());
     }
 
     #[test]
     fn set() {
-        todo!()
+        let mut cpu = Cpu::new();
+        let mut memory_bus = MemoryBus::default();
+        cpu.registers.set_b(0b0100_0000);
+        let instruction = Instruction::Set(ArithmeticTarget::B, 6);
+        cpu.execute(instruction, &mut memory_bus);
+        assert_eq!(cpu.registers.b(), 0b0100_0000);
+
+        let instruction = Instruction::Set(ArithmeticTarget::B, 0);
+        cpu.execute(instruction, &mut memory_bus);
+        assert_eq!(cpu.registers.b(), 0b0100_0001);
     }
 
     #[test]
-    fn rst() {
-        todo!()
+    fn res() {
+        let mut cpu = Cpu::new();
+        let mut memory_bus = MemoryBus::default();
+        cpu.registers.set_b(0b0100_0001);
+        let instruction = Instruction::Res(ArithmeticTarget::B, 6);
+        cpu.execute(instruction, &mut memory_bus);
+        assert_eq!(cpu.registers.b(), 0b0000_0001);
+
+        let instruction = Instruction::Res(ArithmeticTarget::B, 2);
+        cpu.execute(instruction, &mut memory_bus);
+        assert_eq!(cpu.registers.b(), 0b0000_0001);
     }
 }
 
