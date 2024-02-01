@@ -169,7 +169,10 @@ impl Cpu {
             ArithmeticTarget::ReadByte => unreachable!("Can't right directly to next byte."),
             // SPECIAL
             ArithmeticTarget::HLDec => {
-                todo!()
+                let address = self.registers.hl();
+                bus.write_byte(address, value);
+                self.registers.set_hl(address - 1);
+                4
             },
             ArithmeticTarget::HLInc => {
                 todo!()
