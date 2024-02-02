@@ -9,8 +9,7 @@ type ProgramCounter = u16;
 
 /// Custom type to split the ProgramCounter and the time offset / number of cycle of the CPU
 type CpuEffect = (ProgramCounter, Delay);
-const NO_CPU_EFFECT: CpuEffect = (0,0);
-
+const NO_CPU_EFFECT: CpuEffect = (0, 0);
 
 pub struct Cpu {
     registers: Registers,
@@ -35,8 +34,7 @@ impl Cpu {
         let instruction = match instruction_byte {
             // prefetched
             0xCB => {
-                self.pc += 1;
-                let instruction_byte = bus.read_byte(self.pc);
+                let instruction_byte = bus.read_byte(self.pc + 1);
                 Instruction::from_prefixed_byte(instruction_byte)
             }
             _ => Instruction::from_byte(instruction_byte),
@@ -44,10 +42,11 @@ impl Cpu {
         .unwrap_or_else(|| panic!("Unknown instruction : 0x{:x}", instruction_byte));
 
         println!(
-            "|0x{:2x}|{:24}|Pc:0x{:04x}|",
+            "|0x{:2x}|{:24}|Pc:0x{:04x}|HL:0x{:04x}|",
             instruction_byte,
             instruction.to_string(),
-            self.pc
+            self.pc,
+            self.registers.hl(),
         );
 
         let (new_pc, _delay) = self.execute(instruction, bus);
@@ -67,6 +66,7 @@ impl Cpu {
             Instruction::Cpl => self.cpl(),
             Instruction::Dec(target) => self.dec(&target, bus),
             Instruction::Inc(target) => self.inc(&target, bus),
+            Instruction::Inc16(target) => self.inc_16(&target, bus),
             Instruction::Or(target) => self.or(&target, bus),
             Instruction::Res(target, byte) => self.reset(&target, byte, bus),
             Instruction::Rla => self.rla(),
@@ -93,7 +93,7 @@ impl Cpu {
                 to: target,
                 from: source,
             } => self.load(&target, &source, bus),
-            Instruction::Load16 { to, from } => self.load16(&to, &from, bus),
+            Instruction::Load16 { to, from } => self.load_16(&to, &from, bus),
             // Stack and Call
             Instruction::Push(source) => self.push(&source, bus),
             Instruction::Pop(target) => self.pop(&target, bus),
@@ -130,6 +130,11 @@ impl Cpu {
                 4,
             ),
             ArithmeticTarget::ReadByte => (bus.read_byte(self.pc + 1), 1, 4),
+            // CHECKME
+            ArithmeticTarget::Pointer => {
+                let address = bus.read_word(self.pc + 1);
+                (bus.read_byte(address), 2, 12)
+            }
             // OTHER
             ArithmeticTarget::HLInc => todo!(),
             ArithmeticTarget::HLDec => todo!(),
@@ -153,7 +158,12 @@ impl Cpu {
 
     /// The the provided value in the right arithmetic target.
     /// The offset is either 4 or 8
-    fn write_value(&mut self, target: &ArithmeticTarget, value: u8, bus: &mut MemoryBus) -> CpuEffect {
+    fn write_value(
+        &mut self,
+        target: &ArithmeticTarget,
+        value: u8,
+        bus: &mut MemoryBus,
+    ) -> CpuEffect {
         match target {
             ArithmeticTarget::A => {
                 self.registers.set_a(value);
@@ -187,39 +197,47 @@ impl Cpu {
             ArithmeticTarget::BCTarget => {
                 let address = self.registers.bc();
                 bus.write_byte(address, value);
-                (0,4)
+                (0, 4)
             }
             ArithmeticTarget::DETarget => {
                 let address = self.registers.de();
                 bus.write_byte(address, value);
-                (0,4)
+                (0, 4)
             }
             ArithmeticTarget::HLTarget => {
                 let address = self.registers.bc();
                 bus.write_byte(address, value);
-                (0,4)
+                (0, 4)
             }
             ArithmeticTarget::FFRead => {
                 let offset = bus.read_byte(self.pc + 1);
                 let address = 0xFF00 + (offset as u16);
                 bus.write_byte(address, value);
-                (1,4)
+                (1, 4)
             }
             ArithmeticTarget::FFC => {
                 let address = 0xFF00 + (self.registers.c() as u16);
                 bus.write_byte(address, value);
-                (0,4)
+                (0, 4)
             }
             ArithmeticTarget::ReadByte => unreachable!("Can't right directly to next byte."),
+            ArithmeticTarget::Pointer => {
+                let address = bus.read_word(self.pc + 1);
+                bus.write_byte(address, value);
+                (2, 12)
+            }
             // SPECIAL
             ArithmeticTarget::HLDec => {
                 let address = self.registers.hl();
                 bus.write_byte(address, value);
                 self.registers.set_hl(address - 1);
-                (0,4)
+                (0, 4)
             }
             ArithmeticTarget::HLInc => {
-                todo!()
+                let address = self.registers.hl();
+                bus.write_byte(address, value);
+                self.registers.set_hl(address + 1);
+                (0, 4)
             }
         }
     }
@@ -255,7 +273,12 @@ impl Cpu {
         if test.evaluate(self.registers.f()) {
             // should jump
             match nature {
-                JumpType::Relative8 => (self.pc + (bus.read_byte(self.pc + 1) as u16), 12),
+                JumpType::Relative8 => {
+                    let offset = bus.read_byte(self.pc + 1) as i8;
+                    // This comes from the size of the instruction↘️
+                    let address = (self.pc as i32 + offset as i32 + 2) as u16;
+                    (address, 12)
+                }
                 JumpType::Pointer16 => (bus.read_word(self.pc + 1), 16),
                 _ => unimplemented!("Jump type missing!"),
             }
@@ -283,12 +306,14 @@ impl Cpu {
         let (value, pc_offset, source_offset) = self.read_value(source, bus);
 
         let (write_pc_offset, write_offset) = self.write_value(target, value, bus);
-        (self.pc + 1 + pc_offset + write_pc_offset, source_offset + write_offset)
+        (
+            self.pc + 1 + pc_offset + write_pc_offset,
+            source_offset + write_offset,
+        )
     }
 
     /// Load next 2 bytes in memory in the provided registers
-    /// REMOVE ME
-    fn load16(
+    fn load_16(
         &mut self,
         target: &WideArithmeticTarget,
         source: &WideArithmeticTarget,
@@ -470,7 +495,10 @@ impl Cpu {
 
         let (write_pc_offset, write_delay_offset) = self.write_value(target, new_value, bus);
 
-        (self.pc + 1 + pc_offset + write_pc_offset, 8 + write_delay_offset + source_offset)
+        (
+            self.pc + 1 + pc_offset + write_pc_offset,
+            8 + write_delay_offset + source_offset,
+        )
     }
 
     /// Shift right arithmetic. Divides by 2
@@ -485,7 +513,10 @@ impl Cpu {
 
         let (write_pc_offset, write_delay_offset) = self.write_value(target, new_value, bus);
 
-        (self.pc + 1 + pc_offset + write_pc_offset, 4 + read_offset + write_delay_offset)
+        (
+            self.pc + 1 + pc_offset + write_pc_offset,
+            4 + read_offset + write_delay_offset,
+        )
     }
 
     /// Bit shift right
@@ -510,7 +541,7 @@ impl Cpu {
 
     // rotate left
     fn rl(&mut self, target: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
-        let (value, pc_offset, read_offset) = self.read_value(target, bus);
+        let (value, _pc_offset, read_offset) = self.read_value(target, bus);
 
         // check first bit
         let carry = (value & 0x80) == 0x80;
@@ -519,9 +550,9 @@ impl Cpu {
 
         self.registers.f_as_mut().set_carry(carry);
 
-        let (write_pc_offset, write_delay_offset) = self.write_value(target, new_value, bus);
+        let (_write_pc_offset, write_delay_offset) = self.write_value(target, new_value, bus);
 
-        (self.pc + 1 + pc_offset+ write_pc_offset, 8 + read_offset + write_delay_offset)
+        (self.pc + 2, 8 + read_offset + write_delay_offset)
     }
 
     fn rlc(&mut self, _target: &ArithmeticTarget, _bus: &mut MemoryBus) -> CpuEffect {
@@ -561,8 +592,30 @@ impl Cpu {
 
         let (write_pc_offset, write_delay_offset) = self.write_value(target, new_value, bus);
 
-        (self.pc + 1 + pc_offset+ write_pc_offset,
-            4 + read_offset + write_delay_offset)
+        (
+            self.pc + 1 + pc_offset + write_pc_offset,
+            4 + read_offset + write_delay_offset,
+        )
+    }
+
+    /// Increment te value of the specified registers by one
+    fn inc_16(&mut self, target: &WideArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
+        let (value, pc_offset, read_offset) = self.read_value_16(target, bus);
+        let (new_value, _did_overflow) = value.overflowing_add(1);
+
+        self.registers.f_as_mut().set_zero(new_value == 0);
+        self.registers.f_as_mut().set_subtract(false);
+        // CHECKME
+        self.registers
+            .f_as_mut()
+            .set_half_carry((new_value & 0xF) + (value & 0xF) > 0xF);
+
+        let write_delay_offset = self.write_value_16(target, new_value);
+
+        (
+            self.pc + 1 + pc_offset,
+            4 + read_offset + write_delay_offset,
+        )
     }
 
     fn dec(&mut self, target: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
@@ -575,7 +628,10 @@ impl Cpu {
 
         let (write_pc_offset, write_delay_offset) = self.write_value(target, new_value, bus);
 
-        (self.pc + 1 + pc_offset+ write_pc_offset, 4 + read_offset + write_delay_offset)
+        (
+            self.pc + 1 + pc_offset + write_pc_offset,
+            4 + read_offset + write_delay_offset,
+        )
     }
     /// Set the complement to register A
     fn cpl(&mut self) -> CpuEffect {
@@ -592,27 +648,27 @@ impl Cpu {
 
     /// set register bit at bit position to 1
     fn set(&mut self, target: &ArithmeticTarget, bit_pos: u8, bus: &mut MemoryBus) -> CpuEffect {
-        let (value, pc_offset, read_offset) = self.read_value(target, bus);
+        let (value, _pc_offset, read_offset) = self.read_value(target, bus);
         let new_value = value | (1u8 << bit_pos);
 
-        let (write_pc_offset, write_delay_offset) = self.write_value(target, new_value, bus);
+        let (_write_pc_offset, write_delay_offset) = self.write_value(target, new_value, bus);
 
-        (self.pc + 1 + pc_offset+ write_pc_offset, 8 + read_offset + write_delay_offset)
+        (self.pc + 2, 8 + read_offset + write_delay_offset)
     }
 
     /// reset register bit at bit position to 0
     fn reset(&mut self, target: &ArithmeticTarget, bit_pos: u8, bus: &mut MemoryBus) -> CpuEffect {
-        let (value, pc_offset, read_offset) = self.read_value(target, bus);
+        let (value, _pc_offset, read_offset) = self.read_value(target, bus);
         let new_value = value & (!(1 << bit_pos));
 
-        let (write_pc_offset, write_delay_offset) = self.write_value(target, new_value, bus);
+        let (_write_pc_offset, write_delay_offset) = self.write_value(target, new_value, bus);
 
-        (self.pc + 1 + pc_offset + write_pc_offset, 8 + write_delay_offset + read_offset)
+        (self.pc + 2, 8 + write_delay_offset + read_offset)
     }
 
     /// bit value
     fn bit(&mut self, target: &ArithmeticTarget, bit_pos: u8, bus: &mut MemoryBus) -> CpuEffect {
-        let (value, pc_offset, read_offset) = self.read_value(target, bus);
+        let (value, _pc_offset, read_offset) = self.read_value(target, bus);
 
         self.registers
             .f_as_mut()
@@ -620,10 +676,11 @@ impl Cpu {
         self.registers.f_as_mut().set_subtract(false);
         self.registers.f_as_mut().set_half_carry(true);
 
-        (self.pc + 1 + pc_offset, 8 + read_offset)
+        (self.pc + 2, 8 + read_offset)
     }
 
     /// swap
+    /// CHECKME, swap lower and higher part or swapping all bits?
     fn swap(&mut self, target: &ArithmeticTarget, bus: &mut MemoryBus) -> CpuEffect {
         let (value, pc_offset, read_offset) = self.read_value(target, bus);
         let new_value = (value << 4) | (value >> 4);
@@ -634,7 +691,10 @@ impl Cpu {
         self.registers.f_as_mut().set_half_carry(false);
         self.registers.f_as_mut().set_carry(false);
 
-        (self.pc + 1 + pc_offset + write_pc_offset, 8 + write_delay_offset + read_offset)
+        (
+            self.pc + 1 + pc_offset + write_pc_offset,
+            8 + write_delay_offset + read_offset,
+        )
     }
 
     /// Push 2 bytes to stack
@@ -644,10 +704,10 @@ impl Cpu {
 
         self.push_word(value, bus);
 
-        // CHECKME
         (self.pc + 1, 16)
     }
 
+    /// Write a word to the stack
     fn push_word(&mut self, value: u16, bus: &mut MemoryBus) {
         // decrese stack
         self.sp = self.sp.wrapping_sub(1);

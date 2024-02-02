@@ -52,7 +52,7 @@ pub trait Memory {
 
         // beware of the endianess
         (self.buffer()[address as usize] as u16)
-            | ((self.buffer()[(address + 1) as usize] as u16) << 4)
+            | ((self.buffer()[(address + 1) as usize] as u16) << 8)
     }
 }
 

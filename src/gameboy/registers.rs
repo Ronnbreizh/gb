@@ -130,3 +130,30 @@ impl Registers {
         self.l = value as u8;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn hl() {
+        let mut registers = Registers::new();
+        assert_eq!(registers.hl(), 0);
+        registers.set_hl(42);
+        assert_eq!(registers.hl(), 42);
+        registers.set_hl(0xFFEE);
+        assert_eq!(registers.hl(), 0xFFEE);
+        assert_eq!(registers.l(), 0xEE);
+        assert_eq!(registers.h(), 0xFF);
+    }
+    #[test]
+    fn de() {
+        let mut registers = Registers::new();
+        assert_eq!(registers.de(), 0);
+        registers.set_de(42);
+        assert_eq!(registers.de(), 42);
+        registers.set_de(0xFFEE);
+        assert_eq!(registers.de(), 0xFFEE);
+        assert_eq!(registers.e(), 0xEE);
+        assert_eq!(registers.d(), 0xFF);
+    }
+}

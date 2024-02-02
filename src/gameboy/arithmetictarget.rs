@@ -26,7 +26,8 @@ pub enum ArithmeticTarget {
 
     // Read one byte
     ReadByte,
-
+    // Pointer in memory
+    Pointer,
     // Read one byte in PC, then access `0xFF00 + byte`
     FFRead,
 
