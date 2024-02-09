@@ -15,37 +15,37 @@ pub struct Gpu {
 // LCD control | R/W | 0xFF40
 struct _LCDControlRegister {
     lcd_enabled:bool,
-    window_tile_map_display_select: WindowMapDisplaySelect,
+    window_tile_map_display_select: _WindowMapDisplaySelect,
     window_display_enabled: bool,
-    tile_data_select: TileDataSelect,
-    bg_map_display_select: BgMapDisplaySelect,
-    obj_size: ObjectSize,
+    tile_data_select: _TileDataSelect,
+    bg_map_display_select: _BgMapDisplaySelect,
+    obj_size: _ObjectSize,
     obj_display_enabled: bool,
     bg_display_enabled: bool,
 }
 
-enum WindowMapDisplaySelect {
+enum _WindowMapDisplaySelect {
     // 0x9800-9BFF
     Low=0,
     // 0x9C00-9FFF
     High=1,
 }
 
-enum TileDataSelect {
+enum _TileDataSelect {
     // 0x8000-8FFF
     Low = 1,
     // 0x8800-97FF
     High = 0,
 }
 
-enum BgMapDisplaySelect {
+enum _BgMapDisplaySelect {
     // 9800-9BFF
     Low=0,
     // 9C00-9FFFF
     High=1,
 }
 
-enum ObjectSize {
+enum _ObjectSize {
     // 8*8
     Small = 0,
     Big = 1,
@@ -57,16 +57,16 @@ struct _LCDStatusRegister {
     mode_2_oam_interrupt_enabled: bool,
     mode_1_vblank_interrupt_enabled:bool,
     mode_0_hblank_interrupt_enabled:bool,
-    coincidence_flag: CoincidenceFlag,
-    mode: ModeFlag
+    coincidence_flag: _CoincidenceFlag,
+    mode: _ModeFlag
 }
 
-enum CoincidenceFlag {
+enum _CoincidenceFlag {
     LycLy,
     LycEqualLy,
 }
 
-enum ModeFlag {
+enum _ModeFlag {
     // During H-blank
     HBlank=0,
     // During V-blank
@@ -92,7 +92,7 @@ impl Gpu {
         bus.read_byte(SCY_ADRESS)
     }
     /// set Scroll Y
-    pub fn set_scy(&self, value: u8, bus: &mut MemoryBus){
+    pub fn _set_scy(&self, value: u8, bus: &mut MemoryBus){
         bus.write_byte(SCY_ADRESS, value);
     }
 
@@ -101,12 +101,14 @@ impl Gpu {
         bus.read_byte(SCX_ADRESS)
     }
     /// set Scroll X
-    pub fn set_scx(&self, value: u8, bus: &mut MemoryBus){
+    pub fn _set_scx(&self, value: u8, bus: &mut MemoryBus){
         bus.write_byte(SCX_ADRESS, value);
     }
 
     // DRAW THE UPDATED CONTENT TO THE SCREEN
-    pub fn draw(&self, _bus: &mut MemoryBus) {
+    pub fn draw(&self, bus: &mut MemoryBus) {
+        let _raw = self.scy(bus);
+        let _col = self.scx(bus);
         // TODO
         /*
         let texture = glium::texture::texture2d::Texture2d::empty_with_format(
