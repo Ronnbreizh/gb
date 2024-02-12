@@ -9,6 +9,7 @@ mod registers;
 use cpu::Cpu;
 use gpu::Gpu;
 use memory::MemoryBus;
+use std::sync::Arc;
 
 /// Screen Width
 const _SCREEN_W: u32 = 160;
@@ -32,7 +33,6 @@ use winit::{
 /// * inputs
 pub struct Gameboy {
     cpu: Cpu,
-    bus: MemoryBus,
     gpu: Gpu,
 }
 
@@ -44,55 +44,55 @@ impl Default for Gameboy {
 
 impl Gameboy {
     pub fn new() -> Self {
-        let bus = MemoryBus::default();
+        let bus = Arc::new(MemoryBus::default());
         Self {
-            cpu: Cpu::new(),
-            gpu: Gpu::new(),
-            bus,
+            cpu: Cpu::new(bus.clone()),
+            gpu: Gpu::new(bus.clone()),
         }
     }
 
     pub fn load(rom_path: &str) -> GbResult<Self> {
-        let bus = MemoryBus::load(rom_path)?;
+        let bus = Arc::new(MemoryBus::load(rom_path)?);
         Ok(Self {
-            cpu: Cpu::new(),
-            gpu: Gpu::new(),
-            bus,
+            cpu: Cpu::new(bus.clone()),
+            gpu: Gpu::new(bus.clone()),
         })
     }
 
     pub fn run(mut self) {
         println!("Run");
-        let event_loop = EventLoopBuilder::new().build().expect("Failed to build event loop");
+        let event_loop = EventLoopBuilder::new()
+            .build()
+            .expect("Failed to build event loop");
         event_loop.set_control_flow(ControlFlow::Poll);
-        let (window,display) = glium::backend::glutin::SimpleWindowBuilder::new().build(&event_loop); 
+        let (window, display) =
+            glium::backend::glutin::SimpleWindowBuilder::new().build(&event_loop);
 
         self.gpu.set_display(display);
-        let _res = event_loop
-            .run(move |ev, window_target| {
-                // cpu
-                self.cpu.step(&mut self.bus);
+        let _res = event_loop.run(move |ev, window_target| {
+            // cpu
+            self.cpu.step();
 
-                // video
-                self.gpu.draw(&mut self.bus);
-                // audio
+            // video
+            self.gpu.draw();
+            // audio
 
-                // compute frame frequency?
-                // let _next_frame_time = std::time::Instant::now() +
-                //     std::time::Duration::from_secs(2);
+            // compute frame frequency?
+            // let _next_frame_time = std::time::Instant::now() +
+            //     std::time::Duration::from_secs(2);
 
-                // input
-                match ev {
-                    Event::WindowEvent { event, .. } => {
-                        if event == WindowEvent::CloseRequested {
-                            window_target.exit();
-                        }
+            // input
+            match ev {
+                Event::WindowEvent { event, .. } => {
+                    if event == WindowEvent::CloseRequested {
+                        window_target.exit();
                     }
-                    Event::AboutToWait => {
-                        window.request_redraw();
-                    }
-                    _ => (),
                 }
-            });
+                Event::AboutToWait => {
+                    window.request_redraw();
+                }
+                _ => (),
+            }
+        });
     }
 }

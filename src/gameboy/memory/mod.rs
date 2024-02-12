@@ -5,7 +5,8 @@ mod memory_zone;
 /// Memory holder
 mod memorybus;
 
-/// Main memory controller
+use std::sync::Arc;
+pub type SharedMemory = Arc<memorybus::MemoryBus>;
 pub use memorybus::MemoryBus;
 
 const BOOT_SEQUENCE_PATH: &str = "etc/DMG_ROM.bin";
