@@ -20,8 +20,7 @@ type GbResult<T> = Result<T, String>;
 
 use winit::{
     event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
+    event_loop::{ControlFlow, EventLoopBuilder},
 };
 
 /// Gameboy main structure
@@ -64,12 +63,13 @@ impl Gameboy {
 
     pub fn run(mut self) {
         println!("Run");
-        let event_loop = EventLoop::new().unwrap();
+        let event_loop = EventLoopBuilder::new().build().expect("Failed to build event loop");
         event_loop.set_control_flow(ControlFlow::Poll);
-        let window = WindowBuilder::new().build(&event_loop).unwrap();
+        let (window,display) = glium::backend::glutin::SimpleWindowBuilder::new().build(&event_loop); 
 
-        event_loop
-            .run(move |ev, control_flow| {
+        self.gpu.set_display(display);
+        let _res = event_loop
+            .run(move |ev, window_target| {
                 // cpu
                 self.cpu.step(&mut self.bus);
 
@@ -85,7 +85,7 @@ impl Gameboy {
                 match ev {
                     Event::WindowEvent { event, .. } => {
                         if event == WindowEvent::CloseRequested {
-                            control_flow.exit();
+                            window_target.exit();
                         }
                     }
                     Event::AboutToWait => {
@@ -93,7 +93,6 @@ impl Gameboy {
                     }
                     _ => (),
                 }
-            })
-            .unwrap();
+            });
     }
 }
