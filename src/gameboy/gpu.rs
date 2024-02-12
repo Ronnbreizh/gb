@@ -1,5 +1,5 @@
 //use super::{SCREEN_W, SCREEN_H};
-use super::memory::MemoryBus;
+use super::memory::SharedMemory;
 
 use glium::{Display, Surface};
 use glutin::surface::WindowSurface;
@@ -12,6 +12,7 @@ use glutin::surface::WindowSurface;
 ///                    or 9C00 to 9FFF
 pub struct Gpu {
     display: Option<Display<WindowSurface>>,
+    memory: SharedMemory,
 }
 
 // LCD control | R/W | 0xFF40
@@ -84,8 +85,11 @@ const SCX_ADRESS: u16 = 0xFF42;
 
 /// Inside the Window f Winit, we will need to create a Vulkan context
 impl Gpu {
-    pub fn new() -> Self {
-        Self { display: None }
+    pub fn new(memory: SharedMemory) -> Self {
+        Self {
+            display: None,
+            memory,
+        }
     }
 
     pub fn set_display(&mut self, display: Display<WindowSurface>) {
@@ -93,27 +97,27 @@ impl Gpu {
     }
 
     /// Scroll Y
-    pub fn scy(&self, bus: &MemoryBus) -> u8 {
-        bus.read_byte(SCY_ADRESS)
+    pub fn scy(&self) -> u8 {
+        self.memory.read_byte(SCY_ADRESS)
     }
     /// set Scroll Y
-    pub fn _set_scy(&self, value: u8, bus: &mut MemoryBus) {
-        bus.write_byte(SCY_ADRESS, value);
+    pub fn _set_scy(&self, value: u8) {
+        self.memory.write_byte(SCY_ADRESS, value);
     }
 
     /// Scroll X
-    pub fn scx(&self, bus: &MemoryBus) -> u8 {
-        bus.read_byte(SCX_ADRESS)
+    pub fn scx(&self) -> u8 {
+        self.memory.read_byte(SCX_ADRESS)
     }
     /// set Scroll X
-    pub fn _set_scx(&self, value: u8, bus: &mut MemoryBus) {
-        bus.write_byte(SCX_ADRESS, value);
+    pub fn _set_scx(&self, value: u8) {
+        self.memory.write_byte(SCX_ADRESS, value);
     }
 
     // DRAW THE UPDATED CONTENT TO THE SCREEN
-    pub fn draw(&self, bus: &mut MemoryBus) {
-        let _raw = self.scy(bus);
-        let _col = self.scx(bus);
+    pub fn draw(&self) {
+        let _raw = self.scy();
+        let _col = self.scx();
         // TODO
         // GLIUM part
         let mut target = self.display.as_ref().expect("No display available").draw();
