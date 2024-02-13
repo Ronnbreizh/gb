@@ -10,11 +10,14 @@ use cpu::Cpu;
 use gpu::Gpu;
 use memory::MemoryBus;
 use std::sync::Arc;
-
+use std::time::Duration;
 /// Screen Width
 const _SCREEN_W: u32 = 160;
 /// Screen Height
 const _SCREEN_H: u32 = 144;
+
+// 4MHz frequency - or 8MHz in CGB double frequency mode.
+const CPU_TICK_DURATION: std::time::Duration = Duration::from_nanos(250);
 
 /// Custom result type, for internal purpose mostly
 type GbResult<T> = Result<T, String>;
@@ -59,8 +62,11 @@ impl Gameboy {
         })
     }
 
-    pub fn run(mut self) {
+    pub fn run(self) {
         println!("Run");
+
+        let Gameboy { mut cpu, mut gpu } = self;
+
         let event_loop = EventLoopBuilder::new()
             .build()
             .expect("Failed to build event loop");
@@ -68,20 +74,28 @@ impl Gameboy {
         let (window, display) =
             glium::backend::glutin::SimpleWindowBuilder::new().build(&event_loop);
 
-        self.gpu.set_display(display);
-        let _res = event_loop.run(move |ev, window_target| {
-            // cpu
-            self.cpu.step();
+        let _cpu_thread_handle = std::thread::spawn(move || {
+            // CPU Loop
+            '_cpu_loop: loop {
+                // We neglate the delta time took by the emulator CPU given the factor 1000 between
+                // each.
+                let cpu_delay_cycles = cpu.step();
+                // Compute delay
+                std::thread::sleep(cpu_delay_cycles * CPU_TICK_DURATION);
+            }
+        });
 
+        gpu.set_display(display);
+        let _res = event_loop.run(move |ev, window_target| {
             // video
-            self.gpu.draw();
+            gpu.draw();
             // audio
 
             // compute frame frequency?
             // let _next_frame_time = std::time::Instant::now() +
             //     std::time::Duration::from_secs(2);
 
-            // input
+            // TODO : input event should write to registers
             match ev {
                 Event::WindowEvent { event, .. } => {
                     if event == WindowEvent::CloseRequested {

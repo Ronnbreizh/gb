@@ -30,7 +30,7 @@ impl Cpu {
         }
     }
 
-    pub fn step(&mut self) {
+    pub fn step(&mut self) -> Delay {
         // Check if prefixed instruction
         let instruction_byte = self.memory.read_byte(self.pc);
         let instruction = match instruction_byte {
@@ -51,8 +51,9 @@ impl Cpu {
             self.registers.hl(),
         );
 
-        let (new_pc, _delay) = self.execute(instruction);
+        let (new_pc, delay) = self.execute(instruction);
         self.pc = new_pc;
+        delay
     }
 
     fn execute(&mut self, instruction: Instruction) -> CpuEffect {
