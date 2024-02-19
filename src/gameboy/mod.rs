@@ -11,10 +11,12 @@ use gpu::Gpu;
 use memory::MemoryBus;
 use std::sync::Arc;
 use std::time::Duration;
-/// Screen Width
-const _SCREEN_W: u32 = 160;
-/// Screen Height
-const _SCREEN_H: u32 = 144;
+
+use glium::{
+    Texture2d, texture::{MipmapsOption, UncompressedFloatFormat},
+
+};
+
 
 // 4MHz frequency - or 8MHz in CGB double frequency mode.
 const CPU_TICK_DURATION: std::time::Duration = Duration::from_nanos(250);
@@ -74,6 +76,14 @@ impl Gameboy {
         let (window, display) =
             glium::backend::glutin::SimpleWindowBuilder::new().build(&event_loop);
 
+        let mut texture = Texture2d::empty_with_format(
+            &display,
+            UncompressedFloatFormat::U8U8U8,
+            MipmapsOption::NoMipmap,
+            gpu::SCREEN_W as u32,
+            gpu::SCREEN_H as u32,
+        ).expect("Failed to create texture"); 
+
         let _cpu_thread_handle = std::thread::spawn(move || {
             // CPU Loop
             '_cpu_loop: loop {
@@ -85,10 +95,9 @@ impl Gameboy {
             }
         });
 
-        gpu.set_display(display);
         let _res = event_loop.run(move |ev, window_target| {
             // video
-            gpu.draw();
+            gpu.draw(&display, &mut texture);
             // audio
 
             // compute frame frequency?

@@ -101,9 +101,13 @@ impl MemoryBus {
 
     /// return video ram buffer
     /// usefull for GPU
-    pub fn _vram(&self) -> &[u8] {
-        todo!();
-        //self.video_ram.read().unwrap().buffer()
+    /// TODO : Terrible atm : this function clone the Vector at *each* frame because
+    /// We can't borrow the data inside the RwLockReadGuard
+    /// VRAM will likely be moved to the GPU and updated using a channel.
+    pub fn vram(& self) -> Vec<u8>  {
+        self.video_ram
+           .read().unwrap()
+           .buffer().to_vec()
     }
 
     /// write byte to memory
