@@ -1,8 +1,12 @@
 //use super::{SCREEN_W, SCREEN_H};
-use super::memory::SharedMemory;
+use super::memory::{SharedMemory};
 
-use glium::{Display, Surface};
 use glutin::surface::WindowSurface;
+use glium::{texture::ClientFormat, Surface};
+/// Screen Width
+pub const SCREEN_W: usize = 160;
+/// Screen Height
+pub const SCREEN_H: usize = 144;
 
 /// objet in charge of display state of the VRAM
 /// from $8000 to $97FF
@@ -11,8 +15,8 @@ use glutin::surface::WindowSurface;
 /// VRAM background map : 9800 to 9BFF
 ///                    or 9C00 to 9FFF
 pub struct Gpu {
-    display: Option<Display<WindowSurface>>,
     memory: SharedMemory,
+    buffer: Vec<u8>,
 }
 
 // LCD control | R/W | 0xFF40
@@ -87,13 +91,10 @@ const SCX_ADRESS: u16 = 0xFF42;
 impl Gpu {
     pub fn new(memory: SharedMemory) -> Self {
         Self {
-            display: None,
             memory,
+            // times 3 due to RBG representation of the data
+            buffer: vec![0x0; SCREEN_H* SCREEN_W * 3],
         }
-    }
-
-    pub fn set_display(&mut self, display: Display<WindowSurface>) {
-        self.display = Some(display);
     }
 
     /// Scroll Y
@@ -115,28 +116,17 @@ impl Gpu {
     }
 
     // DRAW THE UPDATED CONTENT TO THE SCREEN
-    pub fn draw(&self) {
+    pub fn draw(&mut self, display: &glium::Display<WindowSurface>, texture:&mut glium::Texture2d) {
         let _raw = self.scy();
         let _col = self.scx();
-        // TODO
-        // GLIUM part
-        let mut target = self.display.as_ref().expect("No display available").draw();
-        target.clear_color(0.0, 0.0, 1.0, 1.0);
-        target.finish().unwrap();
-        /*
-        let texture = glium::texture::texture2d::Texture2d::empty_with_format(
-                display,
-                UncompressedFloatFormat::U8U8U8,
-                MipmapsOption::NoMipmap,
-                SCREEN_W as u32,
-                SCREEN_H as u32)
-            .unwrap();
 
-        // Retrive VRAM
-        let data = bus.vram();
+        let vram = self.memory.vram();
+
+        let slice = ..(SCREEN_W*SCREEN_H);
+        self.buffer[slice.clone()].clone_from_slice(&vram[slice]);
 
         let rawimage2d = glium::texture::RawImage2d {
-            data: std::borrow::Cow::Borrowed(data),
+            data: std::borrow::Cow::Borrowed(&self.buffer),
             width: SCREEN_W as u32,
             height: SCREEN_H as u32,
             format: ClientFormat::U8U8U8,
@@ -151,9 +141,7 @@ impl Gpu {
             },
             rawimage2d);
 
-        let mut target = display.draw();
-        // clear
-        target.clear_color(0.0, 0.0, 1.0, 1.0);
+        let target = display.draw();
 
         // draw
         let (target_w,target_h) = target.get_dimensions();
@@ -170,7 +158,5 @@ impl Gpu {
             interpolation_type);
         // finish
         target.finish().unwrap();
-
-        */
     }
 }
