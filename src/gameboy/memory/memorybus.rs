@@ -10,10 +10,11 @@ use crate::gameboy::memory::{
 
 use super::memory_zone::{
     Bank0, Bank1, EchoRam, ExternalRam, HighRam, InterruptsRegister, IoRegister, ReadOnlyMemory,
-    SpriteAttributeTable, VideoRam,
+    SpriteAttributeTable,
 };
 use super::{
-    BOOT_SEQUENCE_PATH, BOOT_SEQUENCE_SIZE, EXT_RAM_END, EXT_RAM_START, ROM_END, ROM_START,
+    vram::VideoRam, BOOT_SEQUENCE_PATH, BOOT_SEQUENCE_SIZE, EXT_RAM_END, EXT_RAM_START, ROM_END,
+    ROM_START,
 };
 
 // CHECKME
@@ -104,10 +105,8 @@ impl MemoryBus {
     /// TODO : Terrible atm : this function clone the Vector at *each* frame because
     /// We can't borrow the data inside the RwLockReadGuard
     /// VRAM will likely be moved to the GPU and updated using a channel.
-    pub fn vram(& self) -> Vec<u8>  {
-        self.video_ram
-           .read().unwrap()
-           .buffer().to_vec()
+    pub fn vram(&self) -> Vec<u8> {
+        todo!("Convert VideoRam into Vec<u8>")
     }
 
     /// write byte to memory
