@@ -13,10 +13,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use glium::{
-    Texture2d, texture::{MipmapsOption, UncompressedFloatFormat},
-
+    texture::{MipmapsOption, UncompressedFloatFormat},
+    Texture2d,
 };
-
 
 // 4MHz frequency - or 8MHz in CGB double frequency mode.
 const CPU_TICK_DURATION: std::time::Duration = Duration::from_nanos(250);
@@ -82,7 +81,8 @@ impl Gameboy {
             MipmapsOption::NoMipmap,
             gpu::SCREEN_W as u32,
             gpu::SCREEN_H as u32,
-        ).expect("Failed to create texture"); 
+        )
+        .expect("Failed to create texture");
 
         let _cpu_thread_handle = std::thread::spawn(move || {
             // CPU Loop

@@ -5,6 +5,9 @@ mod memory_zone;
 /// Memory holder
 mod memorybus;
 
+/// VRAM special wrapper
+mod vram;
+
 use std::sync::Arc;
 pub type SharedMemory = Arc<memorybus::MemoryBus>;
 pub use memorybus::MemoryBus;
@@ -18,7 +21,6 @@ const ROM_SIZE: usize = 0x8000;
 
 const VRAM_START: u16 = 0x8000;
 const VRAM_END: u16 = 0x9FFF;
-const VRAM_SIZE: usize = 0x2000;
 
 const EXT_RAM_START: u16 = 0xA000;
 const EXT_RAM_END: u16 = 0xBFFF;

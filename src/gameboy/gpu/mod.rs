@@ -1,8 +1,8 @@
 //use super::{SCREEN_W, SCREEN_H};
-use super::memory::{SharedMemory};
+use super::memory::SharedMemory;
 
-use glutin::surface::WindowSurface;
 use glium::{texture::ClientFormat, Surface};
+use glutin::surface::WindowSurface;
 /// Screen Width
 pub const SCREEN_W: usize = 160;
 /// Screen Height
@@ -93,7 +93,7 @@ impl Gpu {
         Self {
             memory,
             // times 3 due to RBG representation of the data
-            buffer: vec![0x0; SCREEN_H* SCREEN_W * 3],
+            buffer: vec![0x0; SCREEN_H * SCREEN_W * 3],
         }
     }
 
@@ -116,14 +116,18 @@ impl Gpu {
     }
 
     // DRAW THE UPDATED CONTENT TO THE SCREEN
-    pub fn draw(&mut self, display: &glium::Display<WindowSurface>, texture:&mut glium::Texture2d) {
+    pub fn draw(
+        &mut self,
+        display: &glium::Display<WindowSurface>,
+        texture: &mut glium::Texture2d,
+    ) {
         let _raw = self.scy();
         let _col = self.scx();
 
         let vram = self.memory.vram();
 
-        let slice = ..(SCREEN_W*SCREEN_H);
-        self.buffer[slice.clone()].clone_from_slice(&vram[slice]);
+        let slice = ..(SCREEN_W * SCREEN_H);
+        self.buffer[slice].clone_from_slice(&vram[slice]);
 
         let rawimage2d = glium::texture::RawImage2d {
             data: std::borrow::Cow::Borrowed(&self.buffer),
@@ -137,14 +141,15 @@ impl Gpu {
                 left: 0,
                 bottom: 0,
                 width: SCREEN_W as u32,
-                height: SCREEN_H as u32
+                height: SCREEN_H as u32,
             },
-            rawimage2d);
+            rawimage2d,
+        );
 
         let target = display.draw();
 
         // draw
-        let (target_w,target_h) = target.get_dimensions();
+        let (target_w, target_h) = target.get_dimensions();
         let interpolation_type = glium::uniforms::MagnifySamplerFilter::Linear;
 
         texture.as_surface().blit_whole_color_to(
@@ -153,9 +158,10 @@ impl Gpu {
                 left: 0,
                 bottom: target_h,
                 width: target_w as i32,
-                height: -(target_h as i32)
+                height: -(target_h as i32),
             },
-            interpolation_type);
+            interpolation_type,
+        );
         // finish
         target.finish().unwrap();
     }

@@ -3,8 +3,7 @@ use super::{
     BANK_1_START, ECHO_RAM_END, ECHO_RAM_SIZE, ECHO_RAM_START, EXT_RAM_END, EXT_RAM_SIZE,
     EXT_RAM_START, HIGH_RAM_END, HIGH_RAM_SIZE, HIGH_RAM_START, INTERRUPTS_REGISTER,
     INTERRUPTS_REGISTER_SIZE, IO_REGISTER_END, IO_REGISTER_SIZE, IO_REGISTER_START, ROM_END,
-    ROM_SIZE, ROM_START, SPRITE_TABLE_END, SPRITE_TABLE_SIZE, SPRITE_TABLE_START, VRAM_END,
-    VRAM_SIZE, VRAM_START,
+    ROM_SIZE, ROM_START, SPRITE_TABLE_END, SPRITE_TABLE_SIZE, SPRITE_TABLE_START,
 };
 
 /// From 0x0000 to 0x7FFF
@@ -29,37 +28,6 @@ impl Memory for ReadOnlyMemory {
 
     fn end() -> u16 {
         ROM_END
-    }
-
-    fn buffer(&self) -> &[u8] {
-        &self.buffer
-    }
-
-    fn buffer_as_mut(&mut self) -> &mut [u8] {
-        &mut self.buffer
-    }
-}
-
-#[derive(Debug)]
-pub struct VideoRam {
-    buffer: [u8; VRAM_SIZE],
-}
-
-impl Default for VideoRam {
-    fn default() -> Self {
-        Self {
-            buffer: [0u8; VRAM_SIZE],
-        }
-    }
-}
-
-impl Memory for VideoRam {
-    fn start() -> u16 {
-        VRAM_START
-    }
-
-    fn end() -> u16 {
-        VRAM_END
     }
 
     fn buffer(&self) -> &[u8] {
