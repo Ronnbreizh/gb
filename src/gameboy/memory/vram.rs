@@ -3,14 +3,15 @@ use super::{memory_behavior::Memory, VRAM_END, VRAM_START};
 const TILE_NUMBER: usize = 384;
 
 /// Video Ram, mostly used by the GPU
-#[derive(Debug)]
+/// TODO: Remove clone
+#[derive(Debug, Clone)]
 pub struct VideoRam {
     /// 0x8000 -> 0x97FF
-    tile_data: [Tile; TILE_NUMBER],
+    pub tile_data: [Tile; TILE_NUMBER],
     /// 0x9800 -> 0x9BFF
-    tile_map_1: [u8; 32 * 32],
+    pub tile_map_1: [u8; 32 * 32],
     /// 0x9C00 -> 0x9FFF
-    tile_map_2: [u8; 32 * 32],
+    pub tile_map_2: [u8; 32 * 32],
 }
 
 impl Default for VideoRam {
@@ -24,65 +25,48 @@ impl Default for VideoRam {
 }
 
 impl VideoRam {
+    /// Return Tile plus the line offset, computed from the address
     fn get_tile_with_line_offset(&mut self, address: u16) -> (&mut Tile, usize) {
         let real_offset = (address - VRAM_START) as usize;
-        let quotient = real_offset.div_euclid(TILE_NUMBER);
-        let remain = real_offset.rem_euclid(TILE_NUMBER);
+        let quotient = real_offset.rem_euclid(384);
+        let remain = real_offset.rem_euclid(8);
         (&mut self.tile_data[quotient], remain)
     }
 }
 
-/// Each tile contains 8*8 pixels, each stored on 2 bits
+/// Each tile contains 8*8 pixels, each stored on 2 bits.
+/// So 16 bits - or 2 bytes - make a line.
+/// The color is computer from higher_byte[i]*2 + low_byte[i].
+/// The value are therefore splitted to be able to zip them.
 #[derive(Copy, Clone, Debug)]
-struct Tile {
-    pixels: [[Pixel; 8]; 8],
+pub struct Tile {
+    pub(crate) higher_bytes: [u8; 8],
+    pub(crate) lower_bytes: [u8; 8],
 }
 
 impl Default for Tile {
     fn default() -> Tile {
         Self {
-            pixels: [[Pixel::White; 8]; 8],
+            higher_bytes: [0u8; 8],
+            lower_bytes: [0u8; 8],
         }
     }
 }
 
 impl Tile {
+    /// Write the word to the corresponding line in the Tile.
     fn write_line(&mut self, line_offset: usize, value: u16) {
         let [low_value, high_value] = value.to_be_bytes();
-        for (i, pixel) in self.pixels[line_offset].iter_mut().enumerate() {
-            *pixel = Pixel::from_bytes(low_value, high_value, i);
-        }
+        self.higher_bytes[line_offset] = high_value;
+        self.lower_bytes[line_offset] = low_value;
     }
-}
 
-#[repr(u8)]
-#[derive(Copy, Clone, PartialEq, Debug)]
-enum Pixel {
-    Black = 0,
-    DarkGrey = 1,
-    LightGrey = 2,
-    White = 3,
-}
-
-impl From<u8> for Pixel {
-    fn from(value: u8) -> Pixel {
-        match value {
-            0 => Pixel::Black,
-            1 => Pixel::DarkGrey,
-            2 => Pixel::LightGrey,
-            3 => Pixel::White,
-            _ => panic!("Impossible pixel value"),
-        }
+    fn write_higher_byte(&mut self, line_offset: usize, value: u8) {
+        self.higher_bytes[line_offset] = value;
     }
-}
 
-impl Pixel {
-    /// Helper function to convert word + index into a Pixel
-    fn from_bytes(low_value: u8, high_value: u8, index: usize) -> Pixel {
-        let low_value_bit = (low_value << index) >> 7;
-        let high_value_bit = (high_value << index) >> 7;
-        let computed_value = (high_value_bit << 1) + low_value_bit;
-        Pixel::from(computed_value)
+    fn write_lower_byte(&mut self, line_offset: usize, value: u8) {
+        self.lower_bytes[line_offset] = value;
     }
 }
 
@@ -118,10 +102,19 @@ impl Memory for VideoRam {
             _ => unimplemented!(),
         }
     }
+
+    /// TODO : check this, writing to the tile seems to not be working as expected
     fn write_byte(&mut self, address: u16, value: u8) {
         match address {
             0x8000..=0x97FF => {
-                todo!("Only word here")
+                let (tile, line_offset) = self.get_tile_with_line_offset(address);
+                if address.div_euclid(2) == 0 {
+                    // is even
+                    tile.write_lower_byte(line_offset, value);
+                } else {
+                    // is odd
+                    tile.write_higher_byte(line_offset, value);
+                }
             }
             0x9800..=0x09BFF => {
                 self.tile_map_1[address as usize - 0x9800] = value;
@@ -142,19 +135,8 @@ mod tests {
     fn write_tile() {
         let mut tile = Tile::default();
         tile.write_line(0, 0x3C7E);
-        assert_eq!(
-            tile.pixels[0],
-            [
-                Pixel::Black,
-                Pixel::LightGrey,
-                Pixel::White,
-                Pixel::White,
-                Pixel::White,
-                Pixel::White,
-                Pixel::LightGrey,
-                Pixel::Black
-            ]
-        )
+        assert_eq!(tile.higher_bytes[0], 0x7E);
+        assert_eq!(tile.lower_bytes[0], 0x3C);
     }
 
     #[test]

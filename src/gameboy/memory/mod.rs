@@ -11,6 +11,7 @@ mod vram;
 use std::sync::Arc;
 pub type SharedMemory = Arc<memorybus::MemoryBus>;
 pub use memorybus::MemoryBus;
+pub use vram::VideoRam;
 
 const BOOT_SEQUENCE_PATH: &str = "etc/DMG_ROM.bin";
 const BOOT_SEQUENCE_SIZE: usize = 0x0100;
