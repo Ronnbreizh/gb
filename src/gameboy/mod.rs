@@ -84,16 +84,18 @@ impl Gameboy {
         )
         .expect("Failed to create texture");
 
-        let _cpu_thread_handle = std::thread::spawn(move || {
-            // CPU Loop
-            '_cpu_loop: loop {
-                // We neglate the delta time took by the emulator CPU given the factor 1000 between
-                // each.
-                let cpu_delay_cycles = cpu.step();
-                // Compute delay
-                std::thread::sleep(cpu_delay_cycles * CPU_TICK_DURATION);
-            }
-        });
+        let _cpu_thread_handle = std::thread::Builder::new()
+            .name("CPU-thread".to_string())
+            .spawn(move || {
+                // CPU Loop
+                '_cpu_loop: loop {
+                    // We neglate the delta time took by the emulator CPU given the factor 1000 between
+                    // each.
+                    let cpu_delay_cycles = cpu.step();
+                    // Compute delay
+                    std::thread::sleep(cpu_delay_cycles * CPU_TICK_DURATION);
+                }
+            });
 
         let _res = event_loop.run(move |ev, window_target| {
             // video
