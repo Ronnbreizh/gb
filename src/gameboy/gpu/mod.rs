@@ -126,7 +126,7 @@ impl Gpu {
         // IMPROVE ME : take care of scy and scx
         // for (tile_counter, tile_index) in tilemap.iter().enumerate() {
         //     let corrected_index = tile_index + offset_index;
-        //     let tile = vram.tile_data[corrected_index as usize]; 
+        //     let tile = vram.tile_data[corrected_index as usize];
 
         //     // use tile and tile_counter to write to the right place
         //     let row_offset = tile_counter.div_euclid(32);
@@ -139,33 +139,42 @@ impl Gpu {
         for tile_col_index in 0..20 {
             for tile_row_index in 0..16 {
                 // the 260 simulate the offset, in theory
-                let tile_index = tilemap[260+tile_row_index*32+tile_col_index];
+                let tile_index = tilemap[260 + tile_row_index * 32 + tile_col_index];
                 let tile = vram.tile_data[tile_index as usize];
 
-                for (pixel_row, (high, low)) in tile.higher_bytes.iter()
-                        .zip(tile.lower_bytes.iter())
-                        .enumerate() {
+                for (pixel_row, (high, low)) in tile
+                    .higher_bytes
+                    .iter()
+                    .zip(tile.lower_bytes.iter())
+                    .enumerate()
+                {
                     for pixel_col in 0..8 {
                         let pixel = Pixel::from_bytes(*low, *high, pixel_col);
-                        let index = Self::compute_index(tile_row_index, tile_col_index,
-                            pixel_row, pixel_col);
+                        let index = Self::compute_index(
+                            tile_row_index,
+                            tile_col_index,
+                            pixel_row,
+                            pixel_col,
+                        );
                         // prepare the slice for the color
-                        let slice = index*3..=index*3+2;
+                        let slice = index * 3..=index * 3 + 2;
                         self.buffer[slice].copy_from_slice(&pixel.to_rgb());
                     }
                 }
             }
-        } 
-
+        }
     }
 
     #[inline]
     /// Compute the pixel index in the buffer from the pixel coord within a tile
     /// Beware of the conversion from the 32*32 tile space to the 144*160 pixel space
     fn compute_index(
-            tile_row:usize, tile_col:usize,
-            pixel_row:usize, pixel_col:usize) -> usize {
-        (tile_row *8+ pixel_row)* SCREEN_W + 8 * tile_col + pixel_col
+        tile_row: usize,
+        tile_col: usize,
+        pixel_row: usize,
+        pixel_col: usize,
+    ) -> usize {
+        (tile_row * 8 + pixel_row) * SCREEN_W + 8 * tile_col + pixel_col
     }
 
     // DRAW THE UPDATED CONTENT TO THE SCREEN
