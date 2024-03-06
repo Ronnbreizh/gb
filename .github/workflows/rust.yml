@@ -16,9 +16,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Install Task
+      uses: arduino/setup-task@v2
     - name: Build
       run: cargo check --verbose
     - name: Clippy
-      run: task clippy-check
+      run: task clippy_check
     - name: Run tests
-      run: task tests
+      run: task test
