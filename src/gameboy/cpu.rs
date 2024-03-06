@@ -494,12 +494,14 @@ impl Cpu {
     /// Shift right arithmetic. Divides by 2
     fn sra(&mut self, target: &ArithmeticTarget) -> CpuEffect {
         let (value, pc_offset, read_offset) = self.read_value(target);
-        let (new_value, did_overflow) = value.overflowing_div(2);
+        // check first bit
+        let carry = (value & 0x01) == 0x01;
+        let new_value = (value >> 1) | ( value & 0x80 );
 
         self.registers.f_as_mut().set_zero(new_value == 0);
         self.registers.f_as_mut().set_subtract(false);
         self.registers.f_as_mut().set_half_carry(false);
-        self.registers.f_as_mut().set_carry(did_overflow);
+        self.registers.f_as_mut().set_carry(carry);
 
         let (write_pc_offset, write_delay_offset) = self.write_value(target, new_value);
 
@@ -510,8 +512,24 @@ impl Cpu {
     }
 
     /// Bit shift right
-    fn srl(&mut self, _target: &ArithmeticTarget) -> CpuEffect {
-        todo!()
+    fn srl(&mut self, target: &ArithmeticTarget) -> CpuEffect {
+        let (value, pc_offset, read_offset) = self.read_value(target);
+        // check first bit
+        let carry = (value & 0x01) == 0x01;
+
+        let new_value = value >> 1;
+
+        self.registers.f_as_mut().set_zero(new_value == 0);
+        self.registers.f_as_mut().set_subtract(false);
+        self.registers.f_as_mut().set_half_carry(false);
+        self.registers.f_as_mut().set_carry(carry);
+
+        let (write_pc_offset, write_delay_offset) = self.write_value(target, new_value);
+
+        (
+            self.pc + 1 + pc_offset + write_pc_offset,
+            4 + read_offset + write_delay_offset,
+        )
     }
 
     // rotate left for register A
@@ -521,7 +539,40 @@ impl Cpu {
         // check first bit
         let carry = (value & 0x80) == 0x80;
 
-        let new_value = value << 1 | (if self.registers.f().carry() { 1 } else { 0 });
+        let new_value = (value << 1) | (if self.registers.f().carry() { 1 } else { 0 });
+
+        self.registers.f_as_mut().set_carry(carry);
+        self.registers.f_as_mut().set_zero(new_value == 0);
+
+        self.registers.set_a(new_value);
+        (self.pc + 1, 4)
+    }
+
+    // Rotate right without carry the register A
+    fn rrca(&mut self) -> CpuEffect {
+        let value = self.registers.a();
+
+        // check first bit
+        let carry = (value & 0x01) == 0x01;
+
+        let new_value = (value >> 1) | (if carry { 0x80 } else { 0 });
+
+        self.registers.f_as_mut().set_carry(carry);
+        self.registers.f_as_mut().set_zero(new_value == 0);
+
+        self.registers.set_a(new_value);
+        (self.pc + 1, 4)
+
+
+    }
+    // Rotate left without carry the register A
+    fn rlca(&mut self) -> CpuEffect {
+        let value = self.registers.a();
+
+        // check first bit
+        let carry = (value & 0x80) == 0x80;
+
+        let new_value = (value << 1) | (if self.registers.f().carry() { 1 } else { 0 });
 
         self.registers.f_as_mut().set_carry(carry);
 
@@ -536,37 +587,72 @@ impl Cpu {
         // check first bit
         let carry = (value & 0x80) == 0x80;
 
-        let new_value = value << 1 | (if self.registers.f().carry() { 1 } else { 0 });
+        let new_value = (value << 1) | (if self.registers.f().carry() { 1 } else { 0 });
 
         self.registers.f_as_mut().set_carry(carry);
+        self.registers.f_as_mut().set_zero(new_value == 0);
+        self.registers.f_as_mut().set_half_carry(false);
+        self.registers.f_as_mut().set_subtract(false);
 
         let (_write_pc_offset, write_delay_offset) = self.write_value(target, new_value);
 
         (self.pc + 2, 8 + read_offset + write_delay_offset)
     }
 
-    fn rlc(&mut self, _target: &ArithmeticTarget) -> CpuEffect {
-        todo!()
+    fn rlc(&mut self, target: &ArithmeticTarget) -> CpuEffect {
+        let (value, _pc_offset, read_offset) = self.read_value(target);
+
+        // check first bit
+        let carry = (value & 0x80) == 0x80;
+
+        let new_value = (value << 1) | (if carry { 1 } else { 0 });
+
+        self.registers.f_as_mut().set_carry(carry);
+        self.registers.f_as_mut().set_zero(new_value == 0);
+        self.registers.f_as_mut().set_half_carry(false);
+        self.registers.f_as_mut().set_subtract(false);
+
+        let (_write_pc_offset, write_delay_offset) = self.write_value(target, new_value);
+
+        (self.pc + 2, 8 + read_offset + write_delay_offset)
     }
 
     /// Rotate right - rotate via the carry flag by one bit
-    fn rr(&mut self, _target: &ArithmeticTarget) -> CpuEffect {
-        todo!()
-    }
-    ///
-    /// Rotate right - rotate NOT via the carry flag by one bit
-    fn rrc(&mut self, _target: &ArithmeticTarget) -> CpuEffect {
-        todo!()
+    fn rr(&mut self, target: &ArithmeticTarget) -> CpuEffect {
+        let (value, _pc_offset, read_offset) = self.read_value(target);
+
+        // check first bit
+        let carry = (value & 0x01) == 0x01;
+        let new_value = (value >> 1) | (if self.registers.f().carry() { 0x80 } else { 0 });
+
+        self.registers.f_as_mut().set_carry(carry);
+        self.registers.f_as_mut().set_zero(new_value == 0);
+        self.registers.f_as_mut().set_half_carry(false);
+        self.registers.f_as_mut().set_subtract(false);
+
+        let (_write_pc_offset, write_delay_offset) = self.write_value(target, new_value);
+
+        (self.pc + 2, 8 + read_offset + write_delay_offset)
     }
 
-    // Rotate right without carry the register A
-    fn rrca(&mut self) -> CpuEffect {
-        todo!()
+    /// Rotate right - rotate NOT via the carry flag by one bit
+    fn rrc(&mut self, target: &ArithmeticTarget) -> CpuEffect {
+        let (value, _pc_offset, read_offset) = self.read_value(target);
+
+        // check first bit
+        let carry = (value & 0x01) == 0x01;
+        let new_value = (value >> 1) | (if carry { 0x80 } else { 0 });
+
+        self.registers.f_as_mut().set_carry(carry);
+        self.registers.f_as_mut().set_zero(new_value == 0);
+        self.registers.f_as_mut().set_half_carry(false);
+        self.registers.f_as_mut().set_subtract(false);
+
+        let (_write_pc_offset, write_delay_offset) = self.write_value(target, new_value);
+
+        (self.pc + 2, 8 + read_offset + write_delay_offset)
     }
-    // Rotate left without carry the register A
-    fn rlca(&mut self) -> CpuEffect {
-        todo!()
-    }
+
 
     /// Increment te value of the specified register by one
     fn inc(&mut self, target: &ArithmeticTarget) -> CpuEffect {

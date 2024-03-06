@@ -228,66 +228,192 @@ mod test_16bits {
     }
 }
 
-#[cfg(NON)]
 mod test_rotate_shift {
+    use super::*;
     #[test]
     fn rlca() {
-        todo!()
+        let mut cpu = create_cpu();
+        cpu.registers.set_a(0b0100_0000);
+        let instruction = Instruction::Rlc(ArithmeticTarget::A);
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.a(), 0b1000_0000);
+        assert!(cpu.registers.f().carry().not());
+
+        let instruction = Instruction::Rlc(ArithmeticTarget::A);
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.a(), 0b0000_0001);
+        assert!(cpu.registers.f().carry());
     }
 
     #[test]
     fn rla() {
-        todo!()
+        let mut cpu = create_cpu();
+        cpu.registers.set_a(0b0100_0000);
+        let instruction = Instruction::Rla;
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.a(), 0b1000_0000);
+        assert!(cpu.registers.f().carry().not());
+
+        let instruction = Instruction::Rla;
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.a(), 0b0000_0000);
+        assert!(cpu.registers.f().carry());
+        assert!(cpu.registers.f().zero());
     }
 
     #[test]
     fn rrca() {
-        todo!()
+        let mut cpu = create_cpu();
+        cpu.registers.set_a(0b0000_0001);
+        let instruction = Instruction::Rrca;
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.a(), 0b1000_0000);
+        assert!(cpu.registers.f().carry());
     }
 
     #[test]
     fn rra() {
-        todo!()
+        let mut cpu = create_cpu();
+        cpu.registers.set_a(0b0000_0001);
+        let instruction = Instruction::Rrca;
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.a(), 0b1000_0000);
+        assert!(cpu.registers.f().carry());
     }
 
     #[test]
     fn rlc() {
-        todo!()
+        let mut cpu = create_cpu();
+        cpu.registers.set_b(0b0100_0000);
+        let instruction = Instruction::Rlc(ArithmeticTarget::B);
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.b(), 0b1000_0000);
+        assert!(cpu.registers.f().carry().not());
+
+        let instruction = Instruction::Rlc(ArithmeticTarget::B);
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.b(), 0b0000_0001);
+        assert!(cpu.registers.f().carry());
     }
 
     #[test]
     fn rl() {
-        todo!()
+        let mut cpu = create_cpu();
+        cpu.registers.set_b(0b0100_0000);
+        let instruction = Instruction::Rl(ArithmeticTarget::B);
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.b(), 0b1000_0000);
+        assert!(cpu.registers.f().carry().not());
+        // Retrieve carry
+        let instruction = Instruction::Rl(ArithmeticTarget::B);
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.b(), 0b0000_0000);
+        assert!(cpu.registers.f().carry());
+        // With carry
+        let instruction = Instruction::Rl(ArithmeticTarget::B);
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.b(), 0b0000_0001);
+        assert!(cpu.registers.f().carry().not());
     }
 
     #[test]
     fn rrc() {
-        todo!()
+        let mut cpu = create_cpu();
+        cpu.registers.set_b(0b0000_0001);
+        let instruction = Instruction::Rrc(ArithmeticTarget::B);
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.b(), 0b1000_0000);
+        assert!(cpu.registers.f().carry());
     }
 
     #[test]
     fn rr() {
-        todo!()
+        let mut cpu = create_cpu();
+        cpu.registers.set_b(0b0000_0001);
+        let instruction = Instruction::Rr(ArithmeticTarget::B);
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.b(), 0b0000_0000);
+        assert!(cpu.registers.f().carry());
+        assert!(cpu.registers.f().zero());
+        // With carry
+        let instruction = Instruction::Rr(ArithmeticTarget::B);
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.b(), 0b1000_0000);
+        assert!(cpu.registers.f().carry().not());
+        assert!(cpu.registers.f().zero().not());
     }
 
     #[test]
     fn sla() {
-        todo!()
+        let mut cpu = create_cpu();
+        cpu.registers.set_b(0b0100_0000);
+        let instruction = Instruction::Sla(ArithmeticTarget::B);
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.b(), 0b1000_0000);
+        assert!(cpu.registers.f().carry().not());
+
+        let instruction = Instruction::Sla(ArithmeticTarget::B);
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.b(), 0b0000_0000);
+        assert!(cpu.registers.f().carry());
     }
 
     #[test]
     fn swap() {
-        todo!()
+        // Not zero
+        let mut cpu = create_cpu();
+        cpu.registers.set_b(0xFA);
+        let instruction = Instruction::Swap(ArithmeticTarget::B);
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.b(), 0xAF);
+        assert!(cpu.registers.f().carry().not());
+        assert!(cpu.registers.f().zero().not());
+        assert!(cpu.registers.f().half_carry().not());
+        assert!(cpu.registers.f().subtract().not());
+
+        // Zero
+        cpu.registers.set_c(0x00);
+        let instruction = Instruction::Swap(ArithmeticTarget::C);
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.c(), 0x00);
+        assert!(cpu.registers.f().carry().not());
+        assert!(cpu.registers.f().zero());
+        assert!(cpu.registers.f().half_carry().not());
+        assert!(cpu.registers.f().subtract().not());
     }
 
     #[test]
     fn sra() {
-        todo!()
+        let mut cpu = create_cpu();
+        cpu.registers.set_b(0b0000_0010);
+        let instruction = Instruction::Sra(ArithmeticTarget::B);
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.b(), 0b0000_0001);
+        assert!(cpu.registers.f().carry().not());
+        assert!(cpu.registers.f().zero().not());
+
+        let instruction = Instruction::Sra(ArithmeticTarget::B);
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.b(), 0b0000_0000);
+        assert!(cpu.registers.f().carry());
+        assert!(cpu.registers.f().zero());
     }
 
     #[test]
     fn srl() {
-        todo!()
+        let mut cpu = create_cpu();
+        cpu.registers.set_b(0b0000_0010);
+        let instruction = Instruction::Srl(ArithmeticTarget::B);
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.b(), 0b0000_0001);
+        assert!(cpu.registers.f().carry().not());
+        assert!(cpu.registers.f().zero().not());
+
+        let instruction = Instruction::Srl(ArithmeticTarget::B);
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.b(), 0b0000_0000);
+        assert!(cpu.registers.f().carry());
+        assert!(cpu.registers.f().zero());
     }
 }
 
