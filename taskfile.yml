@@ -12,6 +12,16 @@ tasks:
       - rust-gdb target/debug/gb
     silent: true
 
+  release:
+    cmds: 
+      - cargo build --release
+    silent: true
+
+  test:
+    cmds: 
+      - cargo test
+    silent: true
+
   clippy:
     cmds:
       - cargo clippy --fix
