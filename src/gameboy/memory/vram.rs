@@ -38,19 +38,10 @@ impl VideoRam {
 /// So 16 bits - or 2 bytes - make a line.
 /// The color is computer from higher_byte[i]*2 + low_byte[i].
 /// The value are therefore splitted to be able to zip them.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Tile {
     pub(crate) higher_bytes: [u8; 8],
     pub(crate) lower_bytes: [u8; 8],
-}
-
-impl Default for Tile {
-    fn default() -> Tile {
-        Self {
-            higher_bytes: [0u8; 8],
-            lower_bytes: [0u8; 8],
-        }
-    }
 }
 
 impl Tile {

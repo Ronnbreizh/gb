@@ -28,8 +28,8 @@ impl Pixel {
         Pixel::from(computed_value)
     }
 
-    pub fn to_rgb(&self) -> [u8; 3] {
-        //TODO
+    pub fn to_rgb(self) -> [u8; 3] {
+        // TODO
         match self {
             Pixel::Black => [0, 0, 0],
             Pixel::DarkGrey => [0x20, 0x40, 0x20],
