@@ -32,7 +32,7 @@ impl Gpu {
 
     /// Return if the offset inside the TileMap is enabled
     pub fn background_and_windows_tiles(&self) -> BgWindowDataArea {
-        if (self.lcd_control_register() << 3 >> 7) == 1 {
+        if (self.lcd_control_register() << 3 >> 7) == 0 {
             BgWindowDataArea::High
         } else {
             BgWindowDataArea::Low

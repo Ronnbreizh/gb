@@ -31,7 +31,7 @@ impl Pixel {
     pub fn to_rgb(self) -> [u8; 3] {
         // TODO
         match self {
-            Pixel::Black => [0, 0, 0],
+            Pixel::Black => [0x00, 0x20, 0x00],
             Pixel::DarkGrey => [0x20, 0x40, 0x20],
             Pixel::LightGrey => [0x40, 0x80, 0x40],
             Pixel::White => [0xee, 0xff, 0xee],

@@ -91,6 +91,7 @@ impl Gameboy {
                 }
             });
 
+        // Main loop, graphical and inputs
         let _res = event_loop.run(move |ev, window_target| {
             // video
             gpu.draw(&display, &mut texture);

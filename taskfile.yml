@@ -9,8 +9,12 @@ tasks:
   debug:
     cmds: 
       - cargo build
-      - rust-gdb target/debug/gb
+      - rust-gdb --args target/debug/gb etc/cpu_instrs.gb
     silent: true
+
+  cpu:
+    cmds:
+      - cargo run etc/cpu_instrs.gb
 
   release:
     cmds: 

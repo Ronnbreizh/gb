@@ -31,7 +31,6 @@ impl VideoRam {
         let quotient = real_offset.div_euclid(std::mem::size_of::<Tile>());
         // We divide by 2 to match the 2 bytes wide line
         let remain = real_offset.rem_euclid(std::mem::size_of::<Tile>()) / 2;
-        log::debug!("Writing to tile {} at line {}", quotient, remain);
         (&mut self.tile_data[quotient], remain)
     }
 }
@@ -55,10 +54,12 @@ impl Tile {
     }
 
     fn write_higher_byte(&mut self, line_offset: usize, value: u8) {
+        log::trace!("{:08b}|line {}|tile {:?}", value, line_offset, self as *const _);
         self.higher_bytes[line_offset] = value;
     }
 
     fn write_lower_byte(&mut self, line_offset: usize, value: u8) {
+        log::trace!("{:08b}|line {}|tile {:?}", value, line_offset, self as *const _);
         self.lower_bytes[line_offset] = value;
     }
 }
@@ -101,7 +102,7 @@ impl Memory for VideoRam {
         match address {
             0x8000..=0x97FF => {
                 let (tile, line_offset) = self.get_tile_with_line_offset(address);
-                if address.div_euclid(2) == 0 {
+                if address.rem_euclid(2) == 0 {
                     // is even
                     tile.write_lower_byte(line_offset, value);
                 } else {
