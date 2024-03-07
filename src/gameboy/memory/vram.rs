@@ -28,8 +28,10 @@ impl VideoRam {
     /// Return Tile plus the line offset, computed from the address
     fn get_tile_with_line_offset(&mut self, address: u16) -> (&mut Tile, usize) {
         let real_offset = (address - VRAM_START) as usize;
-        let quotient = real_offset.rem_euclid(384);
-        let remain = real_offset.rem_euclid(8);
+        let quotient = real_offset.div_euclid(std::mem::size_of::<Tile>());
+        // We divide by 2 to match the 2 bytes wide line
+        let remain = real_offset.rem_euclid(std::mem::size_of::<Tile>()) / 2;
+        log::debug!("Writing to tile {} at line {}", quotient, remain);
         (&mut self.tile_data[quotient], remain)
     }
 }
@@ -123,6 +125,33 @@ impl Memory for VideoRam {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pick_tile_zero() {
+        let mut vram = VideoRam::default();
+        let address = 0x8000;
+        let (tile, line_offset) = vram.get_tile_with_line_offset(address);
+        assert_eq!(line_offset, 0);
+        assert_eq!(tile as *const _, &vram.tile_data[0] as *const _);
+    }
+
+    #[test]
+    fn pick_tile_tile_offset() {
+        let mut vram = VideoRam::default();
+        let address = 0x8010; // 8000 + 10* 64 + 7*16
+        let (tile, line_offset) = vram.get_tile_with_line_offset(address);
+        assert_eq!(line_offset, 0);
+        assert_eq!(tile as *const _, &vram.tile_data[1] as *const _);
+    }
+
+    #[test]
+    fn pick_tile_line_offset() {
+        let mut vram = VideoRam::default();
+        let address = 0x800a; // 8000 + 10* 64 + 7*16
+        let (tile, line_offset) = vram.get_tile_with_line_offset(address);
+        assert_eq!(line_offset, 5);
+        assert_eq!(tile as *const _, &vram.tile_data[0] as *const _);
+    }
 
     #[test]
     fn write_tile() {
