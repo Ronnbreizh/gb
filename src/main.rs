@@ -3,11 +3,18 @@ use std::env;
 use gb::Gameboy;
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    let filename = &args.first().expect("No ROM path provided");
+    // Init logging
+    simple_logging::log_to_file("test.log", log::LevelFilter::Debug)
+        .expect("Failed to create logging env");
+    let filename = env::args().nth(1);
 
-    // load ROM
-    let gameboy = Gameboy::load(filename).unwrap();
+    let gameboy = if let Some(filename) = filename {
+        // load ROM
+        Gameboy::load(&filename).unwrap()
+    } else {
+        // Only the Bootstrap
+        Gameboy::new().unwrap()
+    };
 
     gameboy.run()
 }
