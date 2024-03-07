@@ -142,7 +142,7 @@ impl Gpu {
                     tile_pixel_col,
                 );
 
-                // Write the color 
+                // Write the color
                 let index = (pixel_row * SCREEN_W + pixel_col) * 3;
                 let slice = index..=index + 2;
                 self.buffer[slice].copy_from_slice(&pixel.to_rgb());
