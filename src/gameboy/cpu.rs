@@ -43,8 +43,7 @@ impl Cpu {
         }
         .unwrap_or_else(|| panic!("Unknown instruction : 0x{:x}", instruction_byte));
 
-        // Only print, to keep track of the last instruction
-        print!(
+        log::trace!(
             "|0x{:2x}|{:24}|Pc:0x{:04x}|HL:0x{:04x}|\r",
             instruction_byte,
             instruction.to_string(),

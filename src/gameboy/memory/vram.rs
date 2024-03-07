@@ -108,9 +108,11 @@ impl Memory for VideoRam {
                 }
             }
             0x9800..=0x09BFF => {
+                log::debug!("Bind tilemap_1[{}] to tile {}", address - 0x9800, value);
                 self.tile_map_1[address as usize - 0x9800] = value;
             }
             0x9C00..=0x9FFF => {
+                log::debug!("Bind tilemap_2[{}] to tile {}", address - 0x9800, value);
                 self.tile_map_2[address as usize - 0x9C00] = value;
             }
             _ => unreachable!(),
