@@ -24,8 +24,8 @@ tasks:
 
   clippy:
     cmds:
-      - cargo clippy --fix
       - cargo fmt
+      - cargo clippy
 
   clippy_check:
     cmds:
