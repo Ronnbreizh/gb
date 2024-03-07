@@ -76,7 +76,7 @@ enum _ModeFlag {
 }
 
 const SCY_ADRESS: u16 = 0xFF42;
-const SCX_ADRESS: u16 = 0xFF42;
+const SCX_ADRESS: u16 = 0xFF43;
 const LCDY_ADRESS: u16 = 0xFF44;
 
 /// Inside the Window f Winit, we will need to create a Vulkan context
