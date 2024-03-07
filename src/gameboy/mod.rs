@@ -24,8 +24,9 @@ const CPU_TICK_DURATION: std::time::Duration = Duration::from_nanos(250);
 type GbResult<T> = Result<T, String>;
 
 use winit::{
-    event::{Event, WindowEvent},
+    event::{ElementState, Event, KeyEvent, WindowEvent},
     event_loop::{ControlFlow, EventLoopBuilder},
+    keyboard::{Key, NamedKey},
 };
 
 /// Gameboy main structure
@@ -103,11 +104,19 @@ impl Gameboy {
 
             // TODO : input event should write to registers
             match ev {
-                Event::WindowEvent { event, .. } => {
-                    if event == WindowEvent::CloseRequested {
-                        window_target.exit();
-                    }
-                }
+                Event::WindowEvent { event, .. } => match event {
+                    WindowEvent::CloseRequested
+                    | WindowEvent::KeyboardInput {
+                        event:
+                            KeyEvent {
+                                state: ElementState::Pressed,
+                                logical_key: Key::Named(NamedKey::Escape),
+                                ..
+                            },
+                        ..
+                    } => window_target.exit(),
+                    _ => (),
+                },
                 Event::AboutToWait => {
                     window.request_redraw();
                 }
