@@ -11,6 +11,7 @@ pub enum BgWindowDataArea {
 }
 
 /// Shows which TileMap is in use
+#[derive(Debug)]
 pub enum TileMap {
     // 9800-9BFF
     One = 0,
@@ -40,7 +41,9 @@ impl Gpu {
 
     /// Return the active TileMap
     pub fn background_tile_map_area(&self) -> TileMap {
-        if (self.lcd_control_register() << 4 >> 7) == 1 {
+        let register = self.lcd_control_register();
+        log::trace!("LCD register :{:b}", register);
+        if ((register << 4) >> 7) == 0 {
             TileMap::One
         } else {
             TileMap::Two

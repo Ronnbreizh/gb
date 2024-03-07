@@ -113,6 +113,8 @@ impl Gpu {
         // select right tile map
         let tilemap_index = self.background_tile_map_area();
 
+        log::debug!("Draw tile map {:?}", tilemap_index);
+
         let tilemap = match tilemap_index {
             TileMap::One => vram.tile_map_1,
             TileMap::Two => vram.tile_map_2,
