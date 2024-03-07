@@ -54,12 +54,22 @@ impl Tile {
     }
 
     fn write_higher_byte(&mut self, line_offset: usize, value: u8) {
-        log::trace!("{:08b}|line {}|tile {:?}", value, line_offset, self as *const _);
+        log::trace!(
+            "{:08b}|line {}|tile {:?}",
+            value,
+            line_offset,
+            self as *const _
+        );
         self.higher_bytes[line_offset] = value;
     }
 
     fn write_lower_byte(&mut self, line_offset: usize, value: u8) {
-        log::trace!("{:08b}|line {}|tile {:?}", value, line_offset, self as *const _);
+        log::trace!(
+            "{:08b}|line {}|tile {:?}",
+            value,
+            line_offset,
+            self as *const _
+        );
         self.lower_bytes[line_offset] = value;
     }
 }

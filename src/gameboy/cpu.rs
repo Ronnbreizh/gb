@@ -495,7 +495,7 @@ impl Cpu {
         let (value, pc_offset, read_offset) = self.read_value(target);
         // check first bit
         let carry = (value & 0x01) == 0x01;
-        let new_value = (value >> 1) | ( value & 0x80 );
+        let new_value = (value >> 1) | (value & 0x80);
 
         self.registers.f_as_mut().set_zero(new_value == 0);
         self.registers.f_as_mut().set_subtract(false);
@@ -561,8 +561,6 @@ impl Cpu {
 
         self.registers.set_a(new_value);
         (self.pc + 1, 4)
-
-
     }
     // Rotate left without carry the register A
     fn rlca(&mut self) -> CpuEffect {
@@ -651,7 +649,6 @@ impl Cpu {
 
         (self.pc + 2, 8 + read_offset + write_delay_offset)
     }
-
 
     /// Increment te value of the specified register by one
     fn inc(&mut self, target: &ArithmeticTarget) -> CpuEffect {
