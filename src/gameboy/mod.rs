@@ -40,19 +40,13 @@ pub struct Gameboy {
     gpu: Gpu,
 }
 
-impl Default for Gameboy {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Gameboy {
-    pub fn new() -> Self {
-        let bus = Arc::new(MemoryBus::default());
-        Self {
+    pub fn new() -> GbResult<Self> {
+        let bus = Arc::new(MemoryBus::new()?);
+        Ok(Self {
             cpu: Cpu::new(bus.clone()),
             gpu: Gpu::new(bus.clone()),
-        }
+        })
     }
 
     pub fn load(rom_path: &str) -> GbResult<Self> {

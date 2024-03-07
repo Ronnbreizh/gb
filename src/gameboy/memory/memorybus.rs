@@ -48,10 +48,17 @@ pub struct MemoryBus {
 }
 
 impl MemoryBus {
-    /// Load bus and cartrige
-    pub fn load(rom_path: &str) -> Result<Self, String> {
+
+    /// Load boot only 
+    pub fn new() -> Result<Self, String> {
         let memory_bus = MemoryBus::default();
         memory_bus.load_boot()?;
+        Ok(memory_bus)
+    }
+
+    /// Load boot and cartride 
+    pub fn load(rom_path: &str) -> Result<Self, String> {
+        let memory_bus = Self::new()?;
         memory_bus.load_cartridge(rom_path)?;
         Ok(memory_bus)
     }
