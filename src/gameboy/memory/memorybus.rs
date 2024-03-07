@@ -48,15 +48,14 @@ pub struct MemoryBus {
 }
 
 impl MemoryBus {
-
-    /// Load boot only 
+    /// Load boot only
     pub fn new() -> Result<Self, String> {
         let memory_bus = MemoryBus::default();
         memory_bus.load_boot()?;
         Ok(memory_bus)
     }
 
-    /// Load boot and cartride 
+    /// Load boot and cartride
     pub fn load(rom_path: &str) -> Result<Self, String> {
         let memory_bus = Self::new()?;
         memory_bus.load_cartridge(rom_path)?;
@@ -213,10 +212,14 @@ impl MemoryBus {
     pub fn load_cartridge(&self, cartrige_path: &str) -> Result<(), String> {
         let memory = &mut self.read_only_memory.write().unwrap();
         let mut cartridge = File::open(cartrige_path).map_err(|e| e.to_string())?;
+        // "Skip" the first 0x100 bytes
+        cartridge
+            .read(&mut memory.buffer_as_mut()[BOOT_SEQUENCE_SIZE..0x0200])
+            .map_err(|e| format!("Failed to parse cartride : {}", e))?;
 
         // write content in memoy after boot sequence size
         cartridge
-            .read(&mut memory.buffer_as_mut()[BOOT_SEQUENCE_SIZE..])
+            .read(&mut memory.buffer_as_mut()[BOOT_SEQUENCE_SIZE..=ROM_END.into()])
             .map_err(|e| format!("Failed to parse cartride : {}", e))?;
 
         Ok(())

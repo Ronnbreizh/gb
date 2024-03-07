@@ -77,6 +77,7 @@ enum _ModeFlag {
 
 const SCY_ADRESS: u16 = 0xFF42;
 const SCX_ADRESS: u16 = 0xFF42;
+const LCDY_ADRESS: u16 = 0xFF44;
 
 /// Inside the Window f Winit, we will need to create a Vulkan context
 impl Gpu {
@@ -84,8 +85,7 @@ impl Gpu {
         Self {
             memory,
             // times 3 due to RBG representation of the data
-            // Loading all the tilemap at once :<
-            buffer: vec![0x0; SCREEN_H * SCREEN_W * 3],
+            buffer: vec![0xff; SCREEN_H * SCREEN_W * 3],
         }
     }
 
@@ -93,18 +93,10 @@ impl Gpu {
     pub fn scy(&self) -> u8 {
         self.memory.read_byte(SCY_ADRESS)
     }
-    /// set Scroll Y
-    pub fn _set_scy(&self, value: u8) {
-        self.memory.write_byte(SCY_ADRESS, value);
-    }
 
     /// Scroll X
     pub fn scx(&self) -> u8 {
         self.memory.read_byte(SCX_ADRESS)
-    }
-    /// set Scroll X
-    pub fn _set_scx(&self, value: u8) {
-        self.memory.write_byte(SCX_ADRESS, value);
     }
 
     /// Read the background tilemaps and write them to the buffers
@@ -113,70 +105,57 @@ impl Gpu {
         // select right tile map
         let tilemap_index = self.background_tile_map_area();
 
-        log::debug!("Draw tile map {:?}", tilemap_index);
-
         let tilemap = match tilemap_index {
             TileMap::One => vram.tile_map_1,
             TileMap::Two => vram.tile_map_2,
         };
 
-        let _offset_index = match self.background_and_windows_tiles() {
-            BgWindowDataArea::High => 127,
+        let offset_index = match self.background_and_windows_tiles() {
+            BgWindowDataArea::High => 128,
             BgWindowDataArea::Low => 0,
         };
 
-        // IMPROVE ME : take care of scy and scx
-        // for (tile_counter, tile_index) in tilemap.iter().enumerate() {
-        //     let corrected_index = tile_index + offset_index;
-        //     let tile = vram.tile_data[corrected_index as usize];
+        let scy = self.scy() as usize;
+        let scx = self.scx() as usize;
 
-        //     // use tile and tile_counter to write to the right place
-        //     let row_offset = tile_counter.div_euclid(32);
-        //     let col_offset = tile_counter.rem_euclid(32);
+        // This should be optimized in a shader
+        for pixel_row in 0..SCREEN_H {
+            self.memory.write_byte(LCDY_ADRESS, pixel_row as u8);
+            for pixel_col in 0..SCREEN_W {
+                //  make the value wrap when out of bound due to SCX / SCY
+                let tilemap_pixel_row = (pixel_row + scy) % 255;
+                let tilemap_pixel_col = (pixel_col + scx) % 255;
 
-        //     self.buffer[((row_offset*32*8 +col_offset*8)* 3) +2] = 255;
-        // }
+                // Get the matching tile ...
+                let tilemap_index =
+                    Self::convert_pixel_to_tile_coord(tilemap_pixel_row, tilemap_pixel_col);
+                let tile_index = tilemap[tilemap_index];
+                let tile = vram.tile_data[tile_index as usize + offset_index];
+                // ... and get the pixel within this tile.
+                let tile_pixel_row = tilemap_pixel_row.rem_euclid(8);
+                let tile_pixel_col = tilemap_pixel_col.rem_euclid(8);
 
-        // Here, I consider that SCY and SCX are always 0
-        for tile_col_index in 0..20 {
-            for tile_row_index in 0..16 {
-                // the 260 simulate the offset, in theory
-                let tile_index = tilemap[260 + tile_row_index * 32 + tile_col_index];
-                let tile = vram.tile_data[tile_index as usize];
+                // Compute pixel color
+                let pixel = Pixel::from_bytes(
+                    tile.lower_bytes[tile_pixel_row],
+                    tile.higher_bytes[tile_pixel_row],
+                    tile_pixel_col,
+                );
 
-                for (pixel_row, (high, low)) in tile
-                    .higher_bytes
-                    .iter()
-                    .zip(tile.lower_bytes.iter())
-                    .enumerate()
-                {
-                    for pixel_col in 0..8 {
-                        let pixel = Pixel::from_bytes(*low, *high, pixel_col);
-                        let index = Self::compute_index(
-                            tile_row_index,
-                            tile_col_index,
-                            pixel_row,
-                            pixel_col,
-                        );
-                        // prepare the slice for the color
-                        let slice = index * 3..=index * 3 + 2;
-                        self.buffer[slice].copy_from_slice(&pixel.to_rgb());
-                    }
-                }
+                // Write the color 
+                let index = (pixel_row * SCREEN_W + pixel_col) * 3;
+                let slice = index..=index + 2;
+                self.buffer[slice].copy_from_slice(&pixel.to_rgb());
             }
         }
+
+        self.memory.write_byte(LCDY_ADRESS, 144);
     }
 
-    #[inline]
-    /// Compute the pixel index in the buffer from the pixel coord within a tile
-    /// Beware of the conversion from the 32*32 tile space to the 144*160 pixel space
-    fn compute_index(
-        tile_row: usize,
-        tile_col: usize,
-        pixel_row: usize,
-        pixel_col: usize,
-    ) -> usize {
-        (tile_row * 8 + pixel_row) * SCREEN_W + 8 * tile_col + pixel_col
+    /// Convert tilemap row and col - including SCY and SCX - to tileindex and offset within the
+    /// corresponding tile.
+    fn convert_pixel_to_tile_coord(tilemap_pixel_row: usize, tilemap_pixel_col: usize) -> usize {
+        tilemap_pixel_row.div_euclid(8) * 32 + tilemap_pixel_col.div_euclid(8)
     }
 
     // DRAW THE UPDATED CONTENT TO THE SCREEN
@@ -185,9 +164,6 @@ impl Gpu {
         display: &glium::Display<WindowSurface>,
         texture: &mut glium::Texture2d,
     ) {
-        let _row = self.scy();
-        let _col = self.scx();
-
         let vram = self.memory.vram();
         self.read_background(&vram);
 
@@ -232,10 +208,13 @@ impl Gpu {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     #[test]
-    fn compute_index() {
-        // assert_eq!(Gpu::compute_index(0,0,0,0), 0);
-        // assert_eq!(Gpu::compute_index(0,0,7,7), 1799);
-        // assert_eq!(Gpu::compute_index(15,19,7,7), 23_903);
+    fn convert_pixel_to_tile_coord() {
+        assert_eq!(Gpu::convert_pixel_to_tile_coord(0, 0), 0);
+        assert_eq!(Gpu::convert_pixel_to_tile_coord(0, 32), 4);
+        assert_eq!(Gpu::convert_pixel_to_tile_coord(9, 0), 32);
+        assert_eq!(Gpu::convert_pixel_to_tile_coord(9, 8), 33);
+        assert_eq!(Gpu::convert_pixel_to_tile_coord(255, 255), 1023);
     }
 }
