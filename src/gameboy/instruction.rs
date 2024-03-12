@@ -39,7 +39,7 @@ pub enum Instruction {
     Nop,
     Adc(ArithmeticTarget),
     Add(ArithmeticTarget),
-    // ADD operation to the Stack pointer
+    // ADD operation to the Stack pointer 
     AddSp,
     // ADD operation to the HL register
     AddHL(WideArithmeticTarget),
@@ -213,9 +213,6 @@ impl Instruction {
                 to: WideArithmeticTarget::SP,
                 from: WideArithmeticTarget::ReadWord,
             }),
-            // CHECKME meaning of HL-
-            // decrease HL by 1
-            // write position pointed by HL with content of A
             0x32 => Some(Instruction::Load {
                 to: ArithmeticTarget::HLDec,
                 from: ArithmeticTarget::A,
@@ -224,14 +221,14 @@ impl Instruction {
             // TODO inc / dec for HL?
             0x34 => Some(Instruction::Inc(ArithmeticTarget::HLTarget)),
             0x35 => Some(Instruction::Dec(ArithmeticTarget::HLTarget)),
-            0x36 => Some(Instruction::Load {
+            0x36 => Some(Instruction::Load{
                 from: ArithmeticTarget::ReadByte,
                 to: ArithmeticTarget::HLTarget,
             }),
             0x37 => Some(Instruction::Scf),
             0x38 => Some(Instruction::Jump(JumpTest::Carry, JumpType::Relative8)),
             0x39 => Some(Instruction::AddHL(WideArithmeticTarget::SP)),
-            0x3a => Some(Instruction::Load {
+            0x3a => Some(Instruction::Load{
                 to: ArithmeticTarget::A,
                 from: ArithmeticTarget::HLDec,
             }),
