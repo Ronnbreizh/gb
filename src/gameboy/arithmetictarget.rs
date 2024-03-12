@@ -10,6 +10,7 @@ pub enum WideArithmeticTarget {
     SP,
     // MEMORY
     ReadWord,
+    ReadAddress,
 }
 
 #[allow(clippy::upper_case_acronyms)]
