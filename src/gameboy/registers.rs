@@ -82,10 +82,6 @@ impl Registers {
         self.e = value;
     }
 
-    // pub fn set_f(&mut self, value: u8) {
-    //     self.f = FlagsRegister::from(value);
-    // }
-
     pub fn set_h(&mut self, value: u8) {
         self.h = value;
     }
