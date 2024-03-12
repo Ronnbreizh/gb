@@ -463,6 +463,40 @@ mod test_1bit {
         cpu.execute(instruction);
         assert_eq!(cpu.registers.b(), 0b0000_0001);
     }
+
+    #[test]
+    fn daa() {
+        let mut cpu = create_cpu();
+
+        cpu.registers.set_a(0x00);
+        let instruction = Instruction::Daa;
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.a(), 0x00);
+
+        cpu.registers.set_a(0x88);
+        let instruction = Instruction::Daa;
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.a(), 0x88);
+
+        cpu.registers.set_a(0x0f);
+        let instruction = Instruction::Daa;
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.a(), 0x15);
+
+        cpu.registers.set_a(0xa9);
+        let instruction = Instruction::Daa;
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.a(), 0x09);
+        assert!(cpu.registers.f().carry());
+
+        // Test substract
+        cpu.registers.f_as_mut().set_subtract(true);
+        // Carry is set
+        cpu.registers.set_a(0xe4);
+        let instruction = Instruction::Daa;
+        cpu.execute(instruction);
+        assert_eq!(cpu.registers.a(), 0x84);
+    }
 }
 
 #[cfg(NON)]

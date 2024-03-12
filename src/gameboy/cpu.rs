@@ -41,7 +41,10 @@ impl Cpu {
             }
             _ => Instruction::from_byte(instruction_byte),
         }
-        .unwrap_or_else(|| panic!("Unknown instruction : 0x{:x}", instruction_byte));
+        .unwrap_or_else(|| {
+            log::warn!("Unknown instruction : 0x{:x}", instruction_byte);
+            Instruction::Nop
+        });
 
         log::trace!(
             "|0x{:2x}|{:24}|Pc:0x{:04x}|HL:0x{:04x}|\r",
@@ -68,6 +71,7 @@ impl Cpu {
             Instruction::Cp(target) => self.cp(&target),
             Instruction::Cpl => self.cpl(),
             Instruction::Dec(target) => self.dec(&target),
+            Instruction::Dec16(target) => self.dec_16(&target),
             Instruction::Inc(target) => self.inc(&target),
             Instruction::Inc16(target) => self.inc_16(&target),
             Instruction::Or(target) => self.or(&target),
@@ -81,7 +85,6 @@ impl Cpu {
             Instruction::Rrca => self.rrca(),
             Instruction::Rlca => self.rlca(),
             Instruction::Sbc(target) => self.sbc(&target),
-            Instruction::Scf => unimplemented!(),
             Instruction::Set(target, byte) => self.set(&target, byte),
             Instruction::Sla(target) => self.sla(&target),
             Instruction::Sra(target) => self.sra(&target),
@@ -102,13 +105,18 @@ impl Cpu {
             Instruction::Pop(target) => self.pop(&target),
             Instruction::Call(test) => self.call(&test),
             Instruction::Ret(test) => self.ret(&test),
-
+            // Interrupt
+            Instruction::DisableInterrupt => self.disable_interrupt(),
+            Instruction::EnableInterrupt => self.enable_interrupt(),
             Instruction::Nop => self.nop(),
             Instruction::Halt => self.halt(),
+            Instruction::Stop => self.stop(),
+            Instruction::Daa => self.daa(),
+            Instruction::Scf => self.scf(),
         }
     }
 
-    fn read_value(&self, target: &ArithmeticTarget) -> (u8, ProgramCounter, Delay) {
+    fn read_value(&mut self, target: &ArithmeticTarget) -> (u8, ProgramCounter, Delay) {
         match target {
             ArithmeticTarget::A => (self.registers.a(), 0, 0),
             ArithmeticTarget::B => (self.registers.b(), 0, 0),
@@ -139,9 +147,20 @@ impl Cpu {
                 let address = self.memory.read_word(self.pc + 1);
                 (self.memory.read_byte(address), 2, 12)
             }
-            // OTHER
-            ArithmeticTarget::HLInc => todo!(),
-            ArithmeticTarget::HLDec => todo!(),
+            // Read value pointer by HL then increment HL
+            ArithmeticTarget::HLInc => {
+                let address = self.registers.hl();
+                let value = self.memory.read_byte(address);
+                self.registers.set_hl(address + 1);
+                (value, 1, 8)
+            }
+            // Read value pointer by HL then decrement HL
+            ArithmeticTarget::HLDec => {
+                let address = self.registers.hl();
+                let value = self.memory.read_byte(address);
+                self.registers.set_hl(address - 1);
+                (value, 1, 8)
+            }
         }
     }
 
@@ -705,6 +724,22 @@ impl Cpu {
             4 + read_offset + write_delay_offset,
         )
     }
+
+    fn dec_16(&mut self, target: &WideArithmeticTarget) -> CpuEffect {
+        let (value, pc_offset, read_offset) = self.read_value_16(target);
+        let new_value = value.wrapping_sub(1);
+
+        self.registers.f_as_mut().set_zero(new_value == 0);
+        self.registers.f_as_mut().set_subtract(true);
+
+        let write_delay_offset = self.write_value_16(target, new_value);
+
+        (
+            self.pc + 1 + pc_offset,
+            4 + read_offset + write_delay_offset,
+        )
+    }
+
     /// Set the complement to register A
     fn cpl(&mut self) -> CpuEffect {
         let value = self.registers.a();
@@ -839,6 +874,74 @@ impl Cpu {
 
         //TODO
         (self.pc + 1, 20)
+    }
+
+    /// Disable the interrupt flag
+    fn disable_interrupt(&mut self) -> CpuEffect {
+        log::info!("Disable interrupt");
+        self.registers.f_as_mut().set_emi(false);
+        (self.pc + 1, 4)
+    }
+
+    fn enable_interrupt(&mut self) -> CpuEffect {
+        log::info!("Enable interrupt");
+        // This flag should be set only *after* the next instruction
+        self.registers.f_as_mut().set_emi(true);
+        (self.pc + 1, 4)
+    }
+
+    /// Enter CPU very low power mode. Also used to switch between double and normal speed CPU
+    /// modes in GBC.
+    fn stop(&mut self) -> CpuEffect {
+        log::info!("Stop");
+        (self.pc + 1, 4)
+    }
+
+    /// Decimal Adjust Accumulator, of the A register
+    fn daa(&mut self) -> CpuEffect {
+        let mut value = self.registers.a();
+        let mut set_carry = false;
+        // Create adjust with carries
+        let adjust = match (
+            self.registers.f().carry() || (value > 0x99 && self.registers.f().subtract().not()),
+            self.registers.f().half_carry()
+                || (value & 0x0f > 0x09 && self.registers.f().subtract().not()),
+        ) {
+            (false, false) => 0x00,
+            (false, true) => 0x06,
+            (true, false) => {
+                set_carry = true;
+                0x60
+            }
+            (true, true) => {
+                set_carry = true;
+                0x66
+            }
+        };
+
+        // is a substraction
+        if self.registers.f().subtract() {
+            value = value.wrapping_sub(adjust);
+        // is an addition
+        } else {
+            value = value.wrapping_add(adjust);
+        }
+
+        self.registers.f_as_mut().set_zero(value == 0);
+        self.registers.f_as_mut().set_half_carry(false);
+        self.registers.f_as_mut().set_carry(set_carry);
+
+        self.registers.set_a(value);
+
+        (self.pc + 1, 4)
+    }
+
+    /// Set Carry Flag
+    fn scf(&mut self) -> CpuEffect {
+        self.registers.f_as_mut().set_carry(true);
+        self.registers.f_as_mut().set_half_carry(false);
+        self.registers.f_as_mut().set_subtract(false);
+        (self.pc + 1, 4)
     }
 }
 
