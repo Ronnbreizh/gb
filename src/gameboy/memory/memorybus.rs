@@ -155,7 +155,7 @@ impl MemoryBus {
     }
 
     /// write word to memory in the proper subspace
-    pub fn _write_word(&self, address: u16, value: u16) {
+    pub fn write_word(&self, address: u16, value: u16) {
         match address {
             ROM_START..=ROM_END => self
                 .read_only_memory

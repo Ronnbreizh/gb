@@ -65,6 +65,7 @@ impl Cpu {
             Instruction::Add(target) => self.add(&target),
             // CHECK special treamtment here
             Instruction::AddHL(_target) => todo!(),
+            Instruction::AddSp => self.add_sp(),
             Instruction::And(target) => self.and(&target),
             Instruction::Bit(target, byte) => self.bit(&target, byte),
             Instruction::Ccf => self.ccf(),
@@ -80,7 +81,7 @@ impl Cpu {
             Instruction::Rlc(target) => self.rlc(&target),
             Instruction::Rr(target) => self.rr(&target),
             Instruction::Rl(target) => self.rl(&target),
-            Instruction::Rra => unimplemented!(),
+            Instruction::Rra => self.rra(),
             Instruction::Rrc(target) => self.rrc(&target),
             Instruction::Rrca => self.rrca(),
             Instruction::Rlca => self.rlca(),
@@ -111,6 +112,7 @@ impl Cpu {
             Instruction::Nop => self.nop(),
             Instruction::Halt => self.halt(),
             Instruction::Stop => self.stop(),
+            Instruction::Rst => self.rst(),
             Instruction::Daa => self.daa(),
             Instruction::Scf => self.scf(),
         }
@@ -170,8 +172,9 @@ impl Cpu {
             WideArithmeticTarget::BC => (self.registers.bc(), 0, 0),
             WideArithmeticTarget::DE => (self.registers.de(), 0, 0),
             WideArithmeticTarget::AF => (self.registers.af(), 0, 0),
-            WideArithmeticTarget::SP => todo!("Read Stack"),
+            WideArithmeticTarget::SP => (self.memory.read_word(self.sp), 0, 0),
             WideArithmeticTarget::ReadWord => (self.memory.read_word(self.pc + 1), 2, 4),
+            WideArithmeticTarget::ReadAddress => panic!("Reading an address has no value here"),
         }
     }
 
@@ -280,6 +283,11 @@ impl Cpu {
                 0
             }
             WideArithmeticTarget::ReadWord => panic!("Can't right directly to the next bytes"),
+            WideArithmeticTarget::ReadAddress => {
+                let address = self.memory.read_word(self.pc + 1);
+                self.memory.write_word(address, value);
+                2
+            }
         }
     }
 
@@ -294,6 +302,7 @@ impl Cpu {
                     (address, 12)
                 }
                 JumpType::Pointer16 => (self.memory.read_word(self.pc + 1), 16),
+                JumpType::HL => (self.registers.hl(), 4),
                 _ => unimplemented!("Jump type missing!"),
             }
         } else {
@@ -301,6 +310,7 @@ impl Cpu {
             match nature {
                 JumpType::Relative8 => (self.pc + 2, 8),
                 JumpType::Pointer16 => (self.pc + 3, 12),
+                JumpType::HL => unreachable!("HL jump as the JumpTest::Always"),
                 _ => unimplemented!("Jump type missing!"),
             }
         }
@@ -364,6 +374,13 @@ impl Cpu {
             .set_half_carry((register_a & 0xF) + (value & 0xF) > 0xF);
 
         (self.pc + 1 + pc_offset, offset)
+    }
+    /// Read the next value as i8 then add it to the SP
+    fn add_sp(&mut self) -> CpuEffect {
+        let (value, _pc_offset, _offset) = self.read_value(&ArithmeticTarget::ReadByte);
+        let sp_value = self.pop_word();
+        self.push_word((sp_value as i16 + value as i16) as u16);
+        (self.pc + 2, 16)
     }
 
     /// Add with carry
@@ -550,7 +567,23 @@ impl Cpu {
         )
     }
 
-    // rotate left for register A
+    /// Rotate right for register A
+    fn rra(&mut self) -> CpuEffect {
+        let value = self.registers.a();
+
+        // check last bit
+        let carry = (value & 0x01) == 0x01;
+
+        let new_value = (value >> 1) | (if self.registers.f().carry() { 0x8 } else { 0 });
+
+        self.registers.f_as_mut().set_carry(carry);
+        self.registers.f_as_mut().set_zero(new_value == 0);
+
+        self.registers.set_a(new_value);
+        (self.pc + 1, 4)
+    }
+
+    // Rotate left for register A
     fn rla(&mut self) -> CpuEffect {
         let value = self.registers.a();
 
@@ -860,6 +893,13 @@ impl Cpu {
         } else {
             (next_pc, 12)
         }
+    }
+
+    /// Call address 0x20 to reset the process
+    fn rst(&mut self) -> CpuEffect {
+        self.push_word(self.pc + 1);
+        // CHECKME
+        (0x20, 4)
     }
 
     /// Return from function
