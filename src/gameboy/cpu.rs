@@ -112,7 +112,7 @@ impl Cpu {
             Instruction::Nop => self.nop(),
             Instruction::Halt => self.halt(),
             Instruction::Stop => self.stop(),
-            Instruction::Rst => self.rst(),
+            Instruction::Rst(address) => self.rst(address),
             Instruction::Daa => self.daa(),
             Instruction::Scf => self.scf(),
         }
@@ -895,11 +895,10 @@ impl Cpu {
         }
     }
 
-    /// Call address 0x20 to reset the process
-    fn rst(&mut self) -> CpuEffect {
+    /// Call provided address to reset the process
+    fn rst(&mut self, address: u16) -> CpuEffect {
         self.push_word(self.pc + 1);
-        // CHECKME
-        (0x20, 4)
+        (address, 4)
     }
 
     /// Return from function

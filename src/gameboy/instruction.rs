@@ -86,7 +86,7 @@ pub enum Instruction {
     Push(WideArithmeticTarget),
     Pop(WideArithmeticTarget),
     Call(JumpTest),
-    Rst,
+    Rst(u16),
     Ret(JumpTest),
     // Interrupt
     DisableInterrupt,
@@ -576,7 +576,7 @@ impl Instruction {
             0xc4 => Some(Instruction::Call(JumpTest::NotZero)),
             0xc5 => Some(Instruction::Push(WideArithmeticTarget::BC)),
             0xc6 => unimplemented!("0x{:x}", byte),
-            0xc7 => unimplemented!("0x{:x}", byte),
+            0xc7 => Some(Instruction::Rst(0x00)),
             0xc8 => Some(Instruction::Ret(JumpTest::Zero)),
             0xc9 => Some(Instruction::Ret(JumpTest::Always)),
             0xca => Some(Instruction::Jump(JumpTest::Zero, JumpType::Pointer16)),
@@ -584,7 +584,7 @@ impl Instruction {
             0xcc => unimplemented!("0x{:x}", byte),
             0xcd => Some(Instruction::Call(JumpTest::Always)),
             0xce => Some(Instruction::Adc(ArithmeticTarget::ReadByte)),
-            0xcf => unimplemented!("0x{:x}", byte),
+            0xcf => Some(Instruction::Rst(0x08)),
             0xd0 => Some(Instruction::Ret(JumpTest::NotCarry)),
             0xd1 => Some(Instruction::Pop(WideArithmeticTarget::DE)),
             0xd2 => Some(Instruction::Jump(JumpTest::NotCarry, JumpType::Pointer16)),
@@ -592,7 +592,7 @@ impl Instruction {
             0xd4 => unimplemented!("0x{:x}", byte),
             0xd5 => Some(Instruction::Push(WideArithmeticTarget::DE)),
             0xd6 => Some(Instruction::Sub(ArithmeticTarget::ReadByte)),
-            0xd7 => unimplemented!("0x{:x}", byte),
+            0xd7 => Some(Instruction::Rst(0x10)),
             0xd8 => Some(Instruction::Ret(JumpTest::Carry)),
             // RETI
             0xd9 => unimplemented!("0x{:x}", byte),
@@ -601,7 +601,7 @@ impl Instruction {
             0xdc => unimplemented!("0x{:x}", byte),
             0xdd => None,
             0xde => unimplemented!("0x{:x}", byte),
-            0xdf => unimplemented!("0x{:x}", byte),
+            0xdf => Some(Instruction::Rst(0x18)),
             0xe0 => Some(Instruction::Load {
                 to: ArithmeticTarget::FFRead,
                 from: ArithmeticTarget::A,
@@ -615,7 +615,7 @@ impl Instruction {
             0xe4 => None,
             0xe5 => Some(Instruction::Push(WideArithmeticTarget::HL)),
             0xe6 => Some(Instruction::And(ArithmeticTarget::ReadByte)),
-            0xe7 => Some(Instruction::Rst),
+            0xe7 => Some(Instruction::Rst(0x20)),
             0xe8 => Some(Instruction::AddSp),
             0xe9 => Some(Instruction::Jump(JumpTest::Always, JumpType::HL)),
             0xea => Some(Instruction::Load {
@@ -626,7 +626,7 @@ impl Instruction {
             0xec => None,
             0xed => None,
             0xee => unimplemented!("0x{:x}", byte),
-            0xef => unimplemented!("0x{:x}", byte),
+            0xef => Some(Instruction::Rst(0x28)),
             0xf0 => Some(Instruction::Load {
                 from: ArithmeticTarget::FFRead,
                 to: ArithmeticTarget::A,
@@ -640,7 +640,7 @@ impl Instruction {
             0xf4 => None,
             0xf5 => Some(Instruction::Push(WideArithmeticTarget::AF)),
             0xf6 => Some(Instruction::Or(ArithmeticTarget::ReadByte)),
-            0xf7 => Some(Instruction::Rst),
+            0xf7 => Some(Instruction::Rst(0x30)),
             0xf8 => unimplemented!("0x{:x}", byte),
             0xf9 => Some(Instruction::Load16{
                 from: WideArithmeticTarget::HL,
@@ -654,7 +654,7 @@ impl Instruction {
             0xfc => None,
             0xfd => None,
             0xfe => Some(Instruction::Cp(ArithmeticTarget::ReadByte)),
-            0xff => Some(Instruction::Rst),
+            0xff => Some(Instruction::Rst(0x38)),
         }
     }
 
@@ -977,7 +977,7 @@ impl ToString for Instruction {
             Instruction::DisableInterrupt => "disable interrupt".to_string(),
             Instruction::EnableInterrupt => "enable interrupt".to_string(),
             Instruction::Stop => "Stop".to_string(),
-            Instruction::Rst => "Reset".to_string(),
+            Instruction::Rst(address) => format!("Reset to address {:02x}", address),
             Instruction::Scf => "Set Carry Flag".to_string(),
             Instruction::Daa => "DAA".to_string(),
         }
