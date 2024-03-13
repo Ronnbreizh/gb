@@ -39,7 +39,7 @@ pub enum Instruction {
     Nop,
     Adc(ArithmeticTarget),
     Add(ArithmeticTarget),
-    // ADD operation to the Stack pointer 
+    // ADD operation to the Stack pointer
     AddSp,
     // ADD operation to the HL register
     AddHL(WideArithmeticTarget),
@@ -158,7 +158,6 @@ impl Instruction {
             0x14 => Some(Instruction::Inc(ArithmeticTarget::D)),
             0x15 => Some(Instruction::Dec(ArithmeticTarget::D)),
             0x16 => Some(Instruction::Load {
-
                 from: ArithmeticTarget::ReadByte,
                 to: ArithmeticTarget::D,
             }),
@@ -222,14 +221,14 @@ impl Instruction {
             // TODO inc / dec for HL?
             0x34 => Some(Instruction::Inc(ArithmeticTarget::HLTarget)),
             0x35 => Some(Instruction::Dec(ArithmeticTarget::HLTarget)),
-            0x36 => Some(Instruction::Load{
+            0x36 => Some(Instruction::Load {
                 from: ArithmeticTarget::ReadByte,
                 to: ArithmeticTarget::HLTarget,
             }),
             0x37 => Some(Instruction::Scf),
             0x38 => Some(Instruction::Jump(JumpTest::Carry, JumpType::Relative8)),
             0x39 => Some(Instruction::AddHL(WideArithmeticTarget::SP)),
-            0x3a => Some(Instruction::Load{
+            0x3a => Some(Instruction::Load {
                 to: ArithmeticTarget::A,
                 from: ArithmeticTarget::HLDec,
             }),
@@ -632,7 +631,7 @@ impl Instruction {
                 to: ArithmeticTarget::A,
             }),
             0xf1 => Some(Instruction::Pop(WideArithmeticTarget::AF)),
-            0xf2 => Some(Instruction::Load{
+            0xf2 => Some(Instruction::Load {
                 from: ArithmeticTarget::FFC,
                 to: ArithmeticTarget::A,
             }),
@@ -642,13 +641,13 @@ impl Instruction {
             0xf6 => Some(Instruction::Or(ArithmeticTarget::ReadByte)),
             0xf7 => Some(Instruction::Rst(0x30)),
             0xf8 => unimplemented!("0x{:x}", byte),
-            0xf9 => Some(Instruction::Load16{
+            0xf9 => Some(Instruction::Load16 {
                 from: WideArithmeticTarget::HL,
                 to: WideArithmeticTarget::SP,
             }),
-            0xfa => Some(Instruction::Load{
+            0xfa => Some(Instruction::Load {
                 to: ArithmeticTarget::A,
-                from: ArithmeticTarget::Pointer
+                from: ArithmeticTarget::Pointer,
             }),
             0xfb => Some(Instruction::EnableInterrupt),
             0xfc => None,
