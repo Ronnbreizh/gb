@@ -80,7 +80,7 @@ impl MemoryBus {
             }
             HIGH_RAM_START..=HIGH_RAM_END => self.high_ram.read().unwrap().read_byte(address),
             INTERRUPTS_REGISTER => self.interrupt_register.read().unwrap().read_byte(address),
-            _ => panic!("Address {} not handled", address),
+            _ => panic!("Reading address {:04x} not handled", address),
         }
     }
 
@@ -102,7 +102,7 @@ impl MemoryBus {
             }
             HIGH_RAM_START..=HIGH_RAM_END => self.high_ram.read().unwrap().read_word(address),
             INTERRUPTS_REGISTER => self.interrupt_register.read().unwrap().read_word(address),
-            _ => panic!("Address {} not handled", address),
+            _ => panic!("Writing address {:04x} not handled", address),
         }
     }
 
