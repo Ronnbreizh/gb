@@ -158,6 +158,7 @@ impl Instruction {
             0x14 => Some(Instruction::Inc(ArithmeticTarget::D)),
             0x15 => Some(Instruction::Dec(ArithmeticTarget::D)),
             0x16 => Some(Instruction::Load {
+
                 from: ArithmeticTarget::ReadByte,
                 to: ArithmeticTarget::D,
             }),
@@ -631,23 +632,29 @@ impl Instruction {
                 to: ArithmeticTarget::A,
             }),
             0xf1 => Some(Instruction::Pop(WideArithmeticTarget::AF)),
-            0xf2 => unimplemented!("0x{:x}", byte),
+            0xf2 => Some(Instruction::Load{
+                from: ArithmeticTarget::FFC,
+                to: ArithmeticTarget::A,
+            }),
             0xf3 => Some(Instruction::DisableInterrupt),
             0xf4 => None,
             0xf5 => Some(Instruction::Push(WideArithmeticTarget::AF)),
             0xf6 => Some(Instruction::Or(ArithmeticTarget::ReadByte)),
-            0xf7 => unimplemented!("0x{:x}", byte),
+            0xf7 => Some(Instruction::Rst),
             0xf8 => unimplemented!("0x{:x}", byte),
-            0xf9 => unimplemented!("0x{:x}", byte),
-            0xfa => Some(Instruction::Load {
+            0xf9 => Some(Instruction::Load16{
+                from: WideArithmeticTarget::HL,
+                to: WideArithmeticTarget::SP,
+            }),
+            0xfa => Some(Instruction::Load{
                 to: ArithmeticTarget::A,
-                from: ArithmeticTarget::FFRead,
+                from: ArithmeticTarget::Pointer
             }),
             0xfb => Some(Instruction::EnableInterrupt),
             0xfc => None,
             0xfd => None,
             0xfe => Some(Instruction::Cp(ArithmeticTarget::ReadByte)),
-            0xff => unimplemented!("0x{:x}", byte),
+            0xff => Some(Instruction::Rst),
         }
     }
 
