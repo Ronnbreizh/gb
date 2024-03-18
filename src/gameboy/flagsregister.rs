@@ -13,7 +13,7 @@ pub struct FlagsRegister {
     subtract: bool,
     half_carry: bool,
     carry: bool,
-    /// Interrupt enabled
+    /// Interrupt Master Enabled flag
     emi: bool,
 }
 

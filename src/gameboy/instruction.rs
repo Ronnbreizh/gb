@@ -88,6 +88,7 @@ pub enum Instruction {
     Call(JumpTest),
     Rst(u16),
     Ret(JumpTest),
+    Reti,
     // Interrupt
     DisableInterrupt,
     EnableInterrupt,
@@ -574,7 +575,7 @@ impl Instruction {
             0xc3 => Some(Instruction::Jump(JumpTest::Always, JumpType::Pointer16)),
             0xc4 => Some(Instruction::Call(JumpTest::NotZero)),
             0xc5 => Some(Instruction::Push(WideArithmeticTarget::BC)),
-            0xc6 => unimplemented!("0x{:x}", byte),
+            0xc6 => Some(Instruction::Add(ArithmeticTarget::ReadByte)),
             0xc7 => Some(Instruction::Rst(0x00)),
             0xc8 => Some(Instruction::Ret(JumpTest::Zero)),
             0xc9 => Some(Instruction::Ret(JumpTest::Always)),
@@ -594,7 +595,7 @@ impl Instruction {
             0xd7 => Some(Instruction::Rst(0x10)),
             0xd8 => Some(Instruction::Ret(JumpTest::Carry)),
             // RETI
-            0xd9 => unimplemented!("0x{:x}", byte),
+            0xd9 => Some(Instruction::Reti),
             0xda => Some(Instruction::Jump(JumpTest::Carry, JumpType::Pointer16)),
             0xdb => None,
             0xdc => unimplemented!("0x{:x}", byte),
@@ -969,6 +970,7 @@ impl ToString for Instruction {
             Instruction::Pop(_) => "pop".to_string(),
             Instruction::Call(_) => "call".to_string(),
             Instruction::Ret(_) => "ret".to_string(),
+            Instruction::Reti => "reti".to_string(),
             Instruction::Bit(target, bit_number) => format!("bit {} of {:?}", bit_number, target),
             Instruction::Set(_, _) => "set".to_string(),
             Instruction::Res(_, _) => "res".to_string(),

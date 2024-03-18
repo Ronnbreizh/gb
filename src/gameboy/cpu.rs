@@ -106,6 +106,7 @@ impl Cpu {
             Instruction::Pop(target) => self.pop(&target),
             Instruction::Call(test) => self.call(&test),
             Instruction::Ret(test) => self.ret(&test),
+            Instruction::Reti => self.reti(),
             // Interrupt
             Instruction::DisableInterrupt => self.disable_interrupt(),
             Instruction::EnableInterrupt => self.enable_interrupt(),
@@ -909,10 +910,7 @@ impl Cpu {
             // CHEKME
             return (address, 16);
         }
-        // else juste skip?
-
-        //TODO
-        (self.pc + 1, 20)
+        (self.pc + 1, 8)
     }
 
     /// Disable the interrupt flag
@@ -927,6 +925,11 @@ impl Cpu {
         // This flag should be set only *after* the next instruction
         self.registers.f_as_mut().set_emi(true);
         (self.pc + 1, 4)
+    }
+
+    fn reti(&mut self) -> CpuEffect {
+        self.registers.f_as_mut().set_emi(true);
+        self.ret(&JumpTest::Always)
     }
 
     /// Enter CPU very low power mode. Also used to switch between double and normal speed CPU
