@@ -9,12 +9,29 @@ tasks:
   debug:
     cmds: 
       - cargo build
-      - rust-gdb --args target/debug/gb etc/cpu_instrs.gb
     silent: true
+
+  debug-cpu:
+    cmds:
+      - task debug
+      - rust-gdb --args target/debug/gb etc/cpu_instrs.gb
+    env:
+      LOG_LEVEL: "DEBUG"
+
+  debug-ppu:
+    cmds:
+      - task debug
+      - rust-gdb --args target/debug/gb etc/dmg-acid2.gb
+    env:
+      LOG_LEVEL: "DEBUG"
 
   cpu:
     cmds:
       - cargo run etc/cpu_instrs.gb
+
+  ppu:
+    cmds:
+      - cargo run etc/dmg-acid2.gb
 
   release:
     cmds: 
