@@ -1,10 +1,8 @@
 use std::env;
 mod logging;
-use log;
 use gb::Gameboy;
 
 fn main() {
-
     // Init logging
     simple_logging::log_to_file("test.log", logging::log_level())
         .expect("Failed to create logging env");
