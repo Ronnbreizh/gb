@@ -7,7 +7,12 @@ use pixel::Pixel;
 use super::memory::SharedMemory;
 use crate::gameboy::memory::VideoRam;
 
-use glium::{texture::ClientFormat, Surface};
+use glium::{
+    texture::{ClientFormat, MipmapsOption, UncompressedFloatFormat},
+    uniforms::MagnifySamplerFilter,
+    winit::raw_window_handle::DisplayHandle,
+    Display, Surface, Texture2d,
+};
 use glutin::surface::WindowSurface;
 /// Screen Width
 pub const SCREEN_W: usize = 160;
@@ -23,6 +28,7 @@ pub const SCREEN_H: usize = 144;
 pub struct Gpu {
     memory: SharedMemory,
     buffer: Vec<u8>,
+    texture: Option<Texture2d>,
 }
 
 // LCD control | R/W | 0xFF40
@@ -81,11 +87,12 @@ const LCDY_ADRESS: u16 = 0xFF44;
 
 /// Inside the Window f Winit, we will need to create a Vulkan context
 impl Gpu {
-    pub fn new(memory: SharedMemory) -> Self {
+    pub fn new(memory: SharedMemory, display: Display<WindowSurface>) -> Self {
         Self {
             memory,
             // times 3 due to RBG representation of the data
             buffer: vec![0xff; SCREEN_H * SCREEN_W * 3],
+            texture: None,
         }
     }
 
@@ -159,50 +166,12 @@ impl Gpu {
     }
 
     // DRAW THE UPDATED CONTENT TO THE SCREEN
-    pub fn draw(
-        &mut self,
-        display: &glium::Display<WindowSurface>,
-        texture: &mut glium::Texture2d,
-    ) {
+    pub fn draw(&mut self) {
+        log::trace!("Draw request to the GPU");
         let vram = self.memory.vram();
         self.read_background(&vram);
 
-        let rawimage2d = glium::texture::RawImage2d {
-            data: std::borrow::Cow::Borrowed(&self.buffer),
-            width: SCREEN_W as u32,
-            height: SCREEN_H as u32,
-            format: ClientFormat::U8U8U8,
-        };
-
-        // CHECK is this is wrapping
-        texture.write(
-            glium::Rect {
-                left: 0,
-                bottom: 0,
-                width: SCREEN_W as u32,
-                height: SCREEN_H as u32,
-            },
-            rawimage2d,
-        );
-
-        let target = display.draw();
-
-        // draw
-        let (target_w, target_h) = target.get_dimensions();
-        let interpolation_type = glium::uniforms::MagnifySamplerFilter::Linear;
-
-        texture.as_surface().blit_whole_color_to(
-            &target,
-            &glium::BlitTarget {
-                left: 0,
-                bottom: target_h,
-                width: target_w as i32,
-                height: -(target_h as i32),
-            },
-            interpolation_type,
-        );
-        // finish
-        target.finish().unwrap();
+        // See https://github.com/glium/glium/blob/master/examples/support/mod.rs
     }
 }
 

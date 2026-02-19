@@ -13,7 +13,7 @@ pub type SharedMemory = Arc<memorybus::MemoryBus>;
 pub use memorybus::MemoryBus;
 pub use vram::VideoRam;
 
-const BOOT_SEQUENCE_PATH: &str = "etc/DMG_ROM.bin";
+const BOOT_SEQUENCE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/etc/DMG_ROM.bin");
 const BOOT_SEQUENCE_SIZE: usize = 0x0100;
 
 const ROM_START: u16 = 0x0000;

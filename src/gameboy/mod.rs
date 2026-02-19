@@ -13,8 +13,17 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use glium::{
-    texture::{MipmapsOption, UncompressedFloatFormat},
-    Texture2d,
+    backend::glutin::SimpleWindowBuilder,
+    winit::{
+        self,
+        application::ApplicationHandler,
+        event::{self, ElementState, KeyEvent, WindowEvent},
+        event_loop::{ControlFlow, EventLoop},
+        keyboard::{Key, NamedKey},
+        platform::{wayland::EventLoopBuilderExtWayland, x11::EventLoopBuilderExtX11},
+        raw_window_handle::HasDisplayHandle,
+        window::{Window, WindowAttributes},
+    },
 };
 
 // 4MHz frequency - or 8MHz in CGB double frequency mode.
@@ -22,12 +31,6 @@ const CPU_TICK_DURATION: std::time::Duration = Duration::from_nanos(250);
 
 /// Custom result type, for internal purpose mostly
 type GbResult<T> = Result<T, String>;
-
-use winit::{
-    event::{ElementState, Event, KeyEvent, WindowEvent},
-    event_loop::{ControlFlow, EventLoopBuilder},
-    keyboard::{Key, NamedKey},
-};
 
 /// Gameboy main structure
 /// load the rom and play it after boot sequence
@@ -37,47 +40,25 @@ use winit::{
 /// * gpu
 /// * inputs
 pub struct Gameboy {
-    cpu: Cpu,
-    gpu: Gpu,
+    bus: Arc<MemoryBus>,
 }
 
 impl Gameboy {
     pub fn new() -> GbResult<Self> {
-        let bus = Arc::new(MemoryBus::new()?);
-        Ok(Self {
-            cpu: Cpu::new(bus.clone()),
-            gpu: Gpu::new(bus.clone()),
-        })
+        Ok(Self::new_inner(MemoryBus::new()?))
     }
 
     pub fn load(rom_path: &str) -> GbResult<Self> {
-        let bus = Arc::new(MemoryBus::load(rom_path)?);
-        Ok(Self {
-            cpu: Cpu::new(bus.clone()),
-            gpu: Gpu::new(bus.clone()),
-        })
+        Ok(Self::new_inner(MemoryBus::load(rom_path)?))
     }
 
-    pub fn run(self) {
-        println!("Run");
+    fn new_inner(memory: MemoryBus) -> Self {
+        let shared_memory = Arc::new(memory);
+        Self { bus: shared_memory }
+    }
 
-        let Gameboy { mut cpu, mut gpu } = self;
-
-        let event_loop = EventLoopBuilder::new()
-            .build()
-            .expect("Failed to build event loop");
-        event_loop.set_control_flow(ControlFlow::Poll);
-        let (window, display) =
-            glium::backend::glutin::SimpleWindowBuilder::new().build(&event_loop);
-
-        let mut texture = Texture2d::empty_with_format(
-            &display,
-            UncompressedFloatFormat::U8U8U8,
-            MipmapsOption::NoMipmap,
-            gpu::SCREEN_W as u32,
-            gpu::SCREEN_H as u32,
-        )
-        .expect("Failed to create texture");
+    fn spawn_cpu(&self) {
+        let mut cpu = Cpu::new(self.bus.clone());
 
         let _cpu_thread_handle = std::thread::Builder::new()
             .name("CPU-thread".to_string())
@@ -91,37 +72,78 @@ impl Gameboy {
                     std::thread::sleep(cpu_delay_cycles * CPU_TICK_DURATION);
                 }
             });
+    }
 
+    pub fn run(self) {
+        let event_loop = EventLoop::builder()
+            .build()
+            .expect("Failed to build event loop");
+
+        event_loop.set_control_flow(ControlFlow::Poll);
+        self.spawn_cpu();
+        let Gameboy { bus } = self;
+        let mut app_context = AppContext { bus, window: None };
         // Main loop, graphical and inputs
-        let _res = event_loop.run(move |ev, window_target| {
-            // video
-            gpu.draw(&display, &mut texture);
-            // audio
+        let _res = event_loop.run_app(&mut app_context);
+    }
+}
 
-            // compute frame frequency?
-            // let _next_frame_time = std::time::Instant::now() +
-            //     std::time::Duration::from_secs(2);
+struct AppContext {
+    bus: Arc<MemoryBus>,
+    // gpu: Gpu,
+    window: Option<Window>,
+}
 
-            // TODO : input event should write to registers
-            match ev {
-                Event::WindowEvent { event, .. } => match event {
-                    WindowEvent::CloseRequested
-                    | WindowEvent::KeyboardInput {
-                        event:
-                            KeyEvent {
-                                state: ElementState::Pressed,
-                                logical_key: Key::Named(NamedKey::Escape),
-                                ..
-                            },
+impl Drop for AppContext {
+    fn drop(&mut self) {
+        log::info!("Dropping app context");
+    }
+}
+
+impl ApplicationHandler for AppContext {
+    fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        let window_attributes = Window::default_attributes().with_title("Gamebouille");
+        let window = event_loop
+            .create_window(window_attributes)
+            .expect("Failed to build window");
+        self.window = Some(window);
+    }
+
+    fn device_event(
+        &mut self,
+        _event_loop: &winit::event_loop::ActiveEventLoop,
+        _device_id: winit::event::DeviceId,
+        event: winit::event::DeviceEvent,
+    ) {
+        match event {
+            winit::event::DeviceEvent::Key(_raw_key_event) => todo!(),
+            _ => (),
+        }
+    }
+
+    fn window_event(
+        &mut self,
+        _event_loop: &winit::event_loop::ActiveEventLoop,
+        _window_id: winit::window::WindowId,
+        event: WindowEvent,
+    ) {
+        let Some(window) = self.window.as_ref() else {
+            return;
+        };
+
+        match event {
+            WindowEvent::CloseRequested
+            | WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        state: ElementState::Pressed,
+                        logical_key: Key::Named(NamedKey::Escape),
                         ..
-                    } => window_target.exit(),
-                    _ => (),
-                },
-                Event::AboutToWait => {
-                    window.request_redraw();
-                }
-                _ => (),
-            }
-        });
+                    },
+                ..
+            } => todo!("Clean exit"),
+            WindowEvent::RedrawRequested => window.request_redraw(),
+            _ => (),
+        }
     }
 }

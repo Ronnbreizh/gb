@@ -1,0 +1,12 @@
+#TODO List pour la gameboy
+
+* Tester boot sequence
+* Faire la VRAM (?)
+
+Stuck par la partie video. Besoin de se sync avec le vsync pour continuer
+
+
+## Utile :
+https://rylev.github.io/DMG-01/public/book/cpu/executing_instructions.html
+https://izik1.github.io/gbops/index.html
+
