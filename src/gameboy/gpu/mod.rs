@@ -7,13 +7,6 @@ use pixel::Pixel;
 use super::memory::SharedMemory;
 use crate::gameboy::memory::VideoRam;
 
-use glium::{
-    texture::{ClientFormat, MipmapsOption, UncompressedFloatFormat},
-    uniforms::MagnifySamplerFilter,
-    winit::raw_window_handle::DisplayHandle,
-    Display, Surface, Texture2d,
-};
-use glutin::surface::WindowSurface;
 /// Screen Width
 pub const SCREEN_W: usize = 160;
 /// Screen Height
@@ -28,7 +21,6 @@ pub const SCREEN_H: usize = 144;
 pub struct Gpu {
     memory: SharedMemory,
     buffer: Vec<u8>,
-    texture: Option<Texture2d>,
 }
 
 // LCD control | R/W | 0xFF40
@@ -87,12 +79,11 @@ const LCDY_ADRESS: u16 = 0xFF44;
 
 /// Inside the Window f Winit, we will need to create a Vulkan context
 impl Gpu {
-    pub fn new(memory: SharedMemory, display: Display<WindowSurface>) -> Self {
+    pub fn new(memory: SharedMemory) -> Self {
         Self {
             memory,
             // times 3 due to RBG representation of the data
             buffer: vec![0xff; SCREEN_H * SCREEN_W * 3],
-            texture: None,
         }
     }
 
@@ -170,7 +161,6 @@ impl Gpu {
         log::trace!("Draw request to the GPU");
         let vram = self.memory.vram();
         self.read_background(&vram);
-
         // See https://github.com/glium/glium/blob/master/examples/support/mod.rs
     }
 }

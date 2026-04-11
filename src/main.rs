@@ -1,11 +1,12 @@
-use std::env;
+use std::env::{self, home_dir};
 mod logging;
 use gb::Gameboy;
 
 fn main() {
-    // Init logging
-    simple_logging::log_to_file("test.log", logging::log_level())
-        .expect("Failed to create logging env");
+    // Workaroud for WSL
+    std::env::set_var("WAYLAND_DISPLAY", ""); // Force X11 on Linux
+    std::env::set_var("WGPU_BACKEND", "gl"); // Force X11 on Linux
+
     // TODO : clap for cleaner CLI
     let filename = env::args().nth(1);
     let gameboy = if let Some(filename) = filename {
@@ -18,5 +19,6 @@ fn main() {
         Gameboy::new().unwrap()
     };
 
-    gameboy.run()
+    // gameboy.run()
+    gb::hmi::run();
 }

@@ -12,18 +12,15 @@ use memory::MemoryBus;
 use std::sync::Arc;
 use std::time::Duration;
 
-use glium::{
-    backend::glutin::SimpleWindowBuilder,
-    winit::{
-        self,
-        application::ApplicationHandler,
-        event::{self, ElementState, KeyEvent, WindowEvent},
-        event_loop::{ControlFlow, EventLoop},
-        keyboard::{Key, NamedKey},
-        platform::{wayland::EventLoopBuilderExtWayland, x11::EventLoopBuilderExtX11},
-        raw_window_handle::HasDisplayHandle,
-        window::{Window, WindowAttributes},
-    },
+use winit::{
+    self,
+    application::ApplicationHandler,
+    event::{self, ElementState, KeyEvent, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    keyboard::{Key, NamedKey},
+    platform::{wayland::EventLoopBuilderExtWayland, x11::EventLoopBuilderExtX11},
+    raw_window_handle::HasDisplayHandle,
+    window::{Window, WindowAttributes},
 };
 
 // 4MHz frequency - or 8MHz in CGB double frequency mode.
@@ -82,15 +79,23 @@ impl Gameboy {
         event_loop.set_control_flow(ControlFlow::Poll);
         self.spawn_cpu();
         let Gameboy { bus } = self;
-        let mut app_context = AppContext { bus, window: None };
+
+        let gpu = Gpu::new(bus.clone());
+
+        let mut app_context = AppContext {
+            _bus: bus,
+            window: None,
+            gpu,
+        };
+
         // Main loop, graphical and inputs
         let _res = event_loop.run_app(&mut app_context);
     }
 }
 
 struct AppContext {
-    bus: Arc<MemoryBus>,
-    // gpu: Gpu,
+    _bus: Arc<MemoryBus>,
+    gpu: Gpu,
     window: Option<Window>,
 }
 
@@ -102,7 +107,9 @@ impl Drop for AppContext {
 
 impl ApplicationHandler for AppContext {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        let window_attributes = Window::default_attributes().with_title("Gamebouille");
+        let window_attributes = Window::default_attributes()
+            .with_title("Gamebouille")
+            .with_visible(true);
         let window = event_loop
             .create_window(window_attributes)
             .expect("Failed to build window");
@@ -123,7 +130,7 @@ impl ApplicationHandler for AppContext {
 
     fn window_event(
         &mut self,
-        _event_loop: &winit::event_loop::ActiveEventLoop,
+        event_loop: &winit::event_loop::ActiveEventLoop,
         _window_id: winit::window::WindowId,
         event: WindowEvent,
     ) {
@@ -141,8 +148,11 @@ impl ApplicationHandler for AppContext {
                         ..
                     },
                 ..
-            } => todo!("Clean exit"),
-            WindowEvent::RedrawRequested => window.request_redraw(),
+            } => event_loop.exit(),
+            WindowEvent::RedrawRequested => {
+                self.gpu.draw();
+                window.request_redraw();
+            }
             _ => (),
         }
     }
